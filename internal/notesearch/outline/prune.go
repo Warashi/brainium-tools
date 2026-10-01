@@ -16,6 +16,17 @@ type Node struct {
 	KeyItems []string
 }
 
+// Sized は全節を、配下を含むバイト数付きで返す。
+func Sized(source string) []Node {
+	sections := Parse(source)
+	offsets := lineOffsets(source)
+	nodes := make([]Node, len(sections))
+	for i, s := range sections {
+		nodes[i] = Node{Section: s, Bytes: byteAt(source, offsets, s.EndLine+1) - byteAt(source, offsets, s.StartLine)}
+	}
+	return nodes
+}
+
 // Prune は、目次をたどるより丸ごと読むほうが安い部分木を畳む。
 //
 // PageIndex の tree_optimize の merge を、ページ数の代わりに原文のバイト
@@ -26,22 +37,20 @@ type Node struct {
 // 体も、最初の見出しより前を子に入らない部分とする根として同じ判定を
 // 受ける。
 func Prune(source string, routeCost int) Pruned {
-	sections := Parse(source)
+	nodes := Sized(source)
 	offsets := lineOffsets(source)
-	at := func(line int) int {
-		if line-1 < len(offsets) {
-			return offsets[line-1]
-		}
-		return len(source)
-	}
+	at := func(line int) int { return byteAt(source, offsets, line) }
 
-	n := len(sections)
+	n := len(nodes)
+	sections := make([]Section, n)
 	size := make([]int, n)
 	own := make([]int, n)
 	parent := make([]int, n)
 	var stack []int
-	for i, s := range sections {
-		size[i] = at(s.EndLine+1) - at(s.StartLine)
+	for i, node := range nodes {
+		s := node.Section
+		sections[i] = s
+		size[i] = node.Bytes
 		own[i] = size[i]
 		for len(stack) > 0 && sections[stack[len(stack)-1]].Level >= s.Level {
 			stack = stack[:len(stack)-1]
@@ -113,6 +122,14 @@ func Prune(source string, routeCost int) Pruned {
 		out.Sections = append(out.Sections, Node{Section: sections[i], Bytes: size[i]})
 	}
 	return out
+}
+
+// byteAt は 1 始まりの line の先頭のバイト位置。最終行より後なら末尾。
+func byteAt(source string, offsets []int, line int) int {
+	if line-1 < len(offsets) {
+		return offsets[line-1]
+	}
+	return len(source)
 }
 
 // lineOffsets は各行の先頭のバイト位置を返す。行の数え方は Parse と同じ。
