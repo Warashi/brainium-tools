@@ -163,6 +163,12 @@ func Extract(content, query string) Document {
 	return doc
 }
 
+// ParseMetadata returns only the file-level metadata, without tokenizing the
+// body as Extract does.
+func ParseMetadata(content string) Metadata {
+	return extractMetadata(splitLines(content))
+}
+
 func splitLines(content string) []sourceLine {
 	lines := make([]sourceLine, 0, strings.Count(content, "\n")+1)
 	for start, number := 0, 1; start < len(content); number++ {

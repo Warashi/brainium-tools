@@ -293,3 +293,10 @@ func TestLongLineAndOneGramNoise(t *testing.T) {
 		t.Fatalf("substantial match did not win: %#v", got.Snippets)
 	}
 }
+
+func TestParseMetadataMatchesExtract(t *testing.T) {
+	source := ":PROPERTIES:\n:ID: x\n:STATUS: stable\n:VERIFIED: [2026-09-01 Tue]\n:END:\n#+title: 題\n本文\n* 見出し\n"
+	if got, want := evidence.ParseMetadata(source), evidence.Extract(source, "本文").Metadata; got != want {
+		t.Errorf("ParseMetadata = %+v, want %+v", got, want)
+	}
+}

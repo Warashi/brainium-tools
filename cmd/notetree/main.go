@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/Warashi/brainium-tools/internal/notesearch/evidence"
@@ -164,7 +165,7 @@ type note struct {
 }
 
 func header(name, source string) note {
-	metadata := evidence.Extract(source, "").Metadata
+	metadata := evidence.ParseMetadata(source)
 	return note{
 		path: name, title: metadata.Title, status: metadata.Status,
 		bytes: len(source), tags: filetags(source),
@@ -273,10 +274,13 @@ func render(notes []note, maxBytes int) ([]byte, error) {
 			return out, nil
 		}
 	}
-	for shown := len(notes) - 1; shown > 0; shown-- {
-		if out := renderAt(notes, show, dropped, shown); len(out) <= maxBytes {
-			return out, nil
-		}
+	// 出力はノート数に対して単調に増えるので、収まる最大の件数を二分探索
+	// する。1 件ずつ減らすとノート数の 2 乗で遅くなる
+	fits := sort.Search(len(notes), func(shown int) bool {
+		return len(renderAt(notes, show, dropped, shown+1)) > maxBytes
+	})
+	if fits > 0 {
+		return renderAt(notes, show, dropped, fits), nil
 	}
 	return nil, fmt.Errorf("output byte budget %d is too small for an honest outline", maxBytes)
 }
