@@ -9,6 +9,10 @@ import (
 // linkRe は org のリンク。説明があれば 2 番目、無ければ 1 番目を見せる。
 var linkRe = regexp.MustCompile(`\[\[([^\]]*)\](?:\[([^\]]*)\])?\]`)
 
+// DefaultOpeningBytes は冒頭の文の既定の上限。長い文は手掛かりとして読
+// み切れない
+const DefaultOpeningBytes = 240
+
 // Opening は最初の見出しより前にある最初の段落から、最初の文を返す。
 //
 // PageIndex は短い節には要約の代わりに本文そのものを載せる。ここでは LLM

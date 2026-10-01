@@ -1,5 +1,11 @@
 package outline
 
+// DefaultRouteBytes は節を 1 つたどる手間を原文のバイト数に換算した既
+// 定値。ツール呼び出し 1 回と目次の読み取りを日本語で 1k token 強と見
+// 積もった値で、実測ではない。目次を出すコマンドの間で畳み方を揃えるた
+// め、ここに置く
+const DefaultRouteBytes = 4096
+
 // Pruned は畳んだ後の文書の目次。
 type Pruned struct {
 	Bytes     int

@@ -34,14 +34,8 @@ import (
 const (
 	notesDir = "notes"
 
-	// defaultRouteBytes は節を 1 つたどる手間を原文のバイト数に換算した
-	// もの。ツール呼び出し 1 回と目次の読み取りを日本語で 1k token 強と
-	// 見積もった値で、実測ではない
-	defaultRouteBytes = 4096
 	// defaultMaxBytes は notesearch の既定の出力上限に揃える
 	defaultMaxBytes = 24000
-	// openingBytes は冒頭の文の上限。長い文は手掛かりとして読み切れない
-	openingBytes = 240
 )
 
 func main() {
@@ -58,7 +52,7 @@ func main() {
 func execute(args []string, cwd string, out io.Writer) error {
 	flags := flag.NewFlagSet("notetree", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	routeBytes := flags.Int("route-bytes", defaultRouteBytes, "節を 1 つたどる手間を原文のバイト数に換算した値")
+	routeBytes := flags.Int("route-bytes", outline.DefaultRouteBytes, "節を 1 つたどる手間を原文のバイト数に換算した値")
 	maxBytes := flags.Int("max-bytes", defaultMaxBytes, "出力全体の最大 UTF-8 バイト数 (正の整数)")
 	depth := flags.Int("depth", -1, "剪定せずに出す見出しの深さ。0 ならタイトルだけ")
 	if err := flags.Parse(args); err != nil {
@@ -169,7 +163,7 @@ func header(name, source string) note {
 	return note{
 		path: name, title: metadata.Title, status: metadata.Status,
 		bytes: len(source), tags: filetags(source),
-		opening: outline.Opening(source, openingBytes),
+		opening: outline.Opening(source, outline.DefaultOpeningBytes),
 	}
 }
 
