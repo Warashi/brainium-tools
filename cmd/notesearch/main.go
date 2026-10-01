@@ -3,7 +3,8 @@
 //	notesearch <query>
 //
 // 原文の抜粋・行番号・成熟度と、検索対象・打ち切りの有無を返す。
-// -format paths で従来のパスだけの出力を使える。
+// -format paths で従来のパスだけの出力を使える。-format tree は抜粋の代
+// わりに、ヒットしたノートの見出しの木と、一致した抜粋を含む節を返す。
 package main
 
 import (
@@ -50,7 +51,7 @@ func run(args []string) error {
 func execute(args []string, cwd string, out io.Writer) error {
 	flags := flag.NewFlagSet("notesearch", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	format := flags.String("format", "text", "出力形式: text / json / paths")
+	format := flags.String("format", "text", "出力形式: text / json / paths / tree")
 	limit := flags.Int("limit", maxResults, "上位ノートの最大件数 (正の整数)")
 	maxBytes := flags.Int("max-bytes", defaultMaxBytes, "出力全体の最大 UTF-8 バイト数 (正の整数)")
 	if err := flags.Parse(args); err != nil {
@@ -77,7 +78,7 @@ func execute(args []string, cwd string, out io.Writer) error {
 	}
 	outputFormat := presentation.Format(*format)
 	switch outputFormat {
-	case presentation.FormatText, presentation.FormatJSON, presentation.FormatPaths:
+	case presentation.FormatText, presentation.FormatJSON, presentation.FormatPaths, presentation.FormatTree:
 	default:
 		return fmt.Errorf("unknown output format %q", *format)
 	}
@@ -85,7 +86,8 @@ func execute(args []string, cwd string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	report, err := search(os.DirFS(filepath.Join(root, notesDir)), query, *limit, outputFormat != presentation.FormatPaths)
+	report, err := search(os.DirFS(filepath.Join(root, notesDir)), query, *limit,
+		outputFormat != presentation.FormatPaths, outputFormat == presentation.FormatTree)
 	if err != nil {
 		return fmt.Errorf("%s: %w", notesDir, err)
 	}
@@ -100,7 +102,7 @@ func execute(args []string, cwd string, out io.Writer) error {
 	return err
 }
 
-func search(fsys fs.FS, query string, limit int, withEvidence bool) (presentation.Report, error) {
+func search(fsys fs.FS, query string, limit int, withEvidence, withOutline bool) (presentation.Report, error) {
 	index, err := notesearch.Build(fsys, nil)
 	if err != nil {
 		return presentation.Report{}, err
@@ -132,6 +134,9 @@ func search(fsys fs.FS, query string, limit int, withEvidence bool) (presentatio
 					StartLine: snippet.StartLine, EndLine: snippet.EndLine,
 					Headings: snippet.Headings, Text: snippet.Text, Kind: snippet.Kind,
 				})
+			}
+			if withOutline {
+				item.Outline = markedOutline(source, item.Snippets)
 			}
 		}
 		report.Results = append(report.Results, item)

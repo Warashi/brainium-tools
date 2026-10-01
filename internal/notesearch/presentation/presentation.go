@@ -17,6 +17,7 @@ const (
 	FormatText  Format = "text"
 	FormatJSON  Format = "json"
 	FormatPaths Format = "paths"
+	FormatTree  Format = "tree"
 )
 
 // Snippet is an exact source range supplied by evidence extraction.
@@ -37,6 +38,7 @@ type Item struct {
 	Verified   string    `json:"verified"`
 	StaleAfter string    `json:"stale_after"`
 	Snippets   []Snippet `json:"snippets"`
+	Outline    []Section `json:"outline,omitempty"`
 }
 
 // Report contains ranked search results. Scope should state the corpus searched.
@@ -60,7 +62,7 @@ func Render(report Report, format Format, maxBytes int) ([]byte, error) {
 	if maxBytes <= 0 {
 		return nil, errors.New("output byte budget must be positive")
 	}
-	if format != FormatText && format != FormatJSON && format != FormatPaths {
+	if format != FormatText && format != FormatJSON && format != FormatPaths && format != FormatTree {
 		return nil, fmt.Errorf("unknown output format %q", format)
 	}
 	if format == FormatPaths {
@@ -116,6 +118,8 @@ func renderer(report Report, format Format) func(selection) []byte {
 		return func(sel selection) []byte { return renderText(report, sel) }
 	case FormatJSON:
 		return func(sel selection) []byte { return renderJSON(report, sel) }
+	case FormatTree:
+		return func(sel selection) []byte { return renderTree(report, sel) }
 	default:
 		panic("validated format")
 	}

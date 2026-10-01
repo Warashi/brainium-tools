@@ -215,7 +215,7 @@ func TestEvidencePreservesRankingAndDoesNotDropDeprecatedNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := index.Search("PRF")
-	got, err := search(fsys, "PRF", 10, true)
+	got, err := search(fsys, "PRF", 10, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}

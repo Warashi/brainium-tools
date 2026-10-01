@@ -3,7 +3,7 @@
 org-mode で書いた個人の知識リポジトリ(brainium 形式)を扱う Go 製のツール群。
 
 - `orglint` — 規約の検査と、本文段落の折り返しの自動修正
-- `notesearch` — `notes/` の BM25 全文検索。原文の抜粋を返す
+- `notesearch` — `notes/` の BM25 全文検索。原文の抜粋か見出しの木を返す
 - `notetree` — ノートの見出しを行範囲付きの目次として出す。agent が目次
   をたどって読む範囲を選ぶためのもので、引数なしなら `notes/` 全体を第
   1 階層まで、パスを渡すとそのファイルを全階層で出す
@@ -51,6 +51,7 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
 
 ```console
 $ notesearch <query>                 # 原文の抜粋付き
+$ notesearch -format tree <query>    # ヒットしたノートの見出しの木と一致した節
 $ notesearch -format json <query>
 $ notesearch -format paths <query>
 ```
