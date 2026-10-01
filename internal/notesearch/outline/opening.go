@@ -1,15 +1,19 @@
 package outline
 
 import (
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
+
+// linkRe は org のリンク。説明があれば 2 番目、無ければ 1 番目を見せる。
+var linkRe = regexp.MustCompile(`\[\[([^\]]*)\](?:\[([^\]]*)\])?\]`)
 
 // Opening は最初の見出しより前にある最初の段落から、最初の文を返す。
 //
 // PageIndex は短い節には要約の代わりに本文そのものを載せる。ここでは LLM
 // で要約を作らないので、ノートが冒頭に書く目的の 1 文を手掛かりとして
-// 原文のまま返す。文が maxBytes を超えたら文字の境界で切り、… を足す。
+// 原文から返す。文が maxBytes を超えたら文字の境界で切り、… を足す。
 // … は maxBytes に数えない。
 func Opening(source string, maxBytes int) string {
 	var paragraph []string
@@ -59,7 +63,15 @@ func firstSentence(lines []string, maxBytes int) string {
 		}
 		b.WriteString(line)
 	}
-	text := b.String()
+	// リンクの記法は Emacs では隠れて説明文だけが見える。記法を残すと
+	// 手掛かりにならない ID で上限を使い切る
+	text := linkRe.ReplaceAllStringFunc(b.String(), func(link string) string {
+		m := linkRe.FindStringSubmatch(link)
+		if m[2] != "" {
+			return m[2]
+		}
+		return m[1]
+	})
 	if i := strings.Index(text, "。"); i >= 0 {
 		text = text[:i+len("。")]
 	} else if i := strings.Index(text, ". "); i >= 0 {

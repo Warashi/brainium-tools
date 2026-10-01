@@ -41,6 +41,11 @@ func TestOpening(t *testing.T) {
 			want:   "",
 		},
 		{
+			name:   "リンクは Emacs での見え方と同じく説明文だけにする",
+			source: "#+title: t\n[[id:0000][前のノート]]を受けて [[https://example.com]] を読んだ。\n",
+			want:   "前のノートを受けて https://example.com を読んだ。",
+		},
+		{
 			name:   "ブロックは本文として扱わない",
 			source: "#+title: t\n#+begin_src sh\nls\n#+end_src\n説明。\n",
 			want:   "説明。",
