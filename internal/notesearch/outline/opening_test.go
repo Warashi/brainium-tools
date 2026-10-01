@@ -46,6 +46,11 @@ func TestOpening(t *testing.T) {
 			want:   "前のノートを受けて https://example.com を読んだ。",
 		},
 		{
+			name:   "対応の無い :END: をドロワーの始まりとみなさない",
+			source: "#+title: t\n:END:\n説明。\n",
+			want:   "説明。",
+		},
+		{
 			name:   "ブロックは本文として扱わない",
 			source: "#+title: t\n#+begin_src sh\nls\n#+end_src\n説明。\n",
 			want:   "説明。",

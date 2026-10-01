@@ -35,7 +35,7 @@ func Opening(source string, maxBytes int) string {
 			inDrawer = !strings.EqualFold(trimmed, ":END:")
 			continue
 		case len(trimmed) > 2 && trimmed[0] == ':' && trimmed[len(trimmed)-1] == ':':
-			inDrawer = true
+			inDrawer = !strings.EqualFold(trimmed, ":END:")
 			continue
 		case strings.HasPrefix(trimmed, "#"):
 			continue
