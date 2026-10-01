@@ -52,7 +52,7 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
 
 ```console
 $ notesearch <query>                 # 原文の抜粋付き
-$ notesearch -format tree <query>    # ヒットしたノートの見出しの木と一致した節
+$ notesearch -format tree <query>    # ヒットしたノートの剪定した目次と一致した節
 $ notesearch -format json <query>
 $ notesearch -format paths <query>
 ```

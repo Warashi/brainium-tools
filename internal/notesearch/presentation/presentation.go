@@ -38,7 +38,13 @@ type Item struct {
 	Verified   string    `json:"verified"`
 	StaleAfter string    `json:"stale_after"`
 	Snippets   []Snippet `json:"snippets"`
-	Outline    []Section `json:"outline,omitempty"`
+	// 以下は FormatTree でだけ使う。他の形式の出力を変えないよう、空なら
+	// JSON に出さない
+	Bytes    int       `json:"bytes,omitempty"`
+	Tree     bool      `json:"tree,omitempty"`
+	Opening  string    `json:"opening,omitempty"`
+	KeyItems []string  `json:"key_items,omitempty"`
+	Outline  []Section `json:"outline,omitempty"`
 }
 
 // Report contains ranked search results. Scope should state the corpus searched.

@@ -4,7 +4,8 @@
 //
 // 原文の抜粋・行番号・成熟度と、検索対象・打ち切りの有無を返す。
 // -format paths で従来のパスだけの出力を使える。-format tree は抜粋の代
-// わりに、ヒットしたノートの見出しの木と、一致した抜粋を含む節を返す。
+// わりに、ヒットしたノートの剪定した目次と冒頭の文、一致した抜粋を含む
+// 節を返す。目次は notetree <path> と同じ基準で畳む。
 package main
 
 import (
@@ -102,7 +103,7 @@ func execute(args []string, cwd string, out io.Writer) error {
 	return err
 }
 
-func search(fsys fs.FS, query string, limit int, withEvidence, withOutline bool) (presentation.Report, error) {
+func search(fsys fs.FS, query string, limit int, withEvidence, outlined bool) (presentation.Report, error) {
 	index, err := notesearch.Build(fsys, nil)
 	if err != nil {
 		return presentation.Report{}, err
@@ -135,8 +136,8 @@ func search(fsys fs.FS, query string, limit int, withEvidence, withOutline bool)
 					Headings: snippet.Headings, Text: snippet.Text, Kind: snippet.Kind,
 				})
 			}
-			if withOutline {
-				item.Outline = markedOutline(source, item.Snippets)
+			if outlined {
+				withOutline(&item, source)
 			}
 		}
 		report.Results = append(report.Results, item)
