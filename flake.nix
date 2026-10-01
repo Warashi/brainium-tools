@@ -21,6 +21,7 @@
         "orglint"
         "notesearch"
         "notestatus"
+        "notetree"
         "notesearch-eval"
       ];
     in
