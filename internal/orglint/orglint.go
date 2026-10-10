@@ -289,12 +289,13 @@ func checkPlacement(f orgFile) []Problem {
 			return nil
 		}
 		return []Problem{{Path: f.path, Message: "ルート直下の org ファイル名は kebab-case にする"}}
-	case strings.HasPrefix(f.path, "notes/"):
-		if dir != "notes/" {
-			return []Problem{{Path: f.path, Message: "notes/ にサブディレクトリは作らない"}}
+	case strings.HasPrefix(f.path, "notes/"), strings.HasPrefix(f.path, "work/"):
+		top, _, _ := strings.Cut(f.path, "/")
+		if dir != top+"/" {
+			return []Problem{{Path: f.path, Message: top + "/ にサブディレクトリは作らない"}}
 		}
 		if !slugRe.MatchString(base) {
-			return []Problem{{Path: f.path, Message: "notes/ のファイル名は英語 kebab-case スラグにする"}}
+			return []Problem{{Path: f.path, Message: top + "/ のファイル名は英語 kebab-case スラグにする"}}
 		}
 		return nil
 	case strings.HasPrefix(f.path, "journal/"):
@@ -310,7 +311,7 @@ func checkPlacement(f orgFile) []Problem {
 		}
 		return nil
 	default:
-		return []Problem{{Path: f.path, Message: "org ファイルは notes/ か journal/ かルート直下に置く"}}
+		return []Problem{{Path: f.path, Message: "org ファイルは notes/ か journal/ か work/ かルート直下に置く"}}
 	}
 }
 

@@ -176,6 +176,25 @@ func TestRun(t *testing.T) {
 		assertProblem(t, got, "Someday.org", "kebab-case")
 	})
 
+	t.Run("work/ 直下の kebab-case の org ファイルを許可する", func(t *testing.T) {
+		got := run(t, map[string]string{
+			"work/pr-triage.org": ":PROPERTIES:\n:ID: aaaaaaaa-0000-0000-0000-000000000002\n:END:\n#+title: x\n",
+		})
+		if len(got) != 0 {
+			t.Errorf("want no problems, got %v", got)
+		}
+	})
+
+	t.Run("work/ のサブディレクトリを報告する", func(t *testing.T) {
+		got := run(t, map[string]string{"work/sub/pr-triage.org": "#+title: x\n"})
+		assertProblem(t, got, "work/sub/pr-triage.org", "サブディレクトリ")
+	})
+
+	t.Run("work/ の kebab-case でないファイル名を報告する", func(t *testing.T) {
+		got := run(t, map[string]string{"work/PR_triage.org": "#+title: x\n"})
+		assertProblem(t, got, "work/PR_triage.org", "kebab-case")
+	})
+
 	t.Run("置き場所でないディレクトリの org ファイルを報告する", func(t *testing.T) {
 		got := run(t, map[string]string{"docs/stray.org": "#+title: x\n"})
 		assertProblem(t, got, "docs/stray.org", "置く")

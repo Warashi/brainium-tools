@@ -31,6 +31,7 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
 - `tasks.org` — TODO 管理。`tasks.org_archive` は ID の供給元としてだけ読む
 - `journal/<YYYY>/<YYYY-MM-DD>.org` — デイリーノート
 - `notes/` — 恒久ノート。フラット配置で、ファイル名は英語の kebab-case
+- `work/` — 進行中の作業ファイル。配置と命名は `notes/` と同じ
 
 ## orglint が検査する規約
 
