@@ -22,6 +22,7 @@ import (
 
 	"github.com/Warashi/brainium-tools/internal/notesearch"
 	"github.com/Warashi/brainium-tools/internal/notesearch/evidence"
+	"github.com/Warashi/brainium-tools/internal/notesearch/links"
 	"github.com/Warashi/brainium-tools/internal/notesearch/presentation"
 	"github.com/Warashi/brainium-tools/internal/repo"
 )
@@ -109,6 +110,12 @@ func search(fsys fs.FS, query string, limit int, withEvidence, outlined bool) (p
 		return presentation.Report{}, err
 	}
 	results := index.Search(query)
+	var graph links.Graph
+	if withEvidence {
+		if graph, err = links.Collect(fsys); err != nil {
+			return presentation.Report{}, err
+		}
+	}
 	report := presentation.Report{
 		Query: query, Scope: notesDir + "/", TotalMatches: len(results),
 		Truncated: len(results) > limit,
@@ -136,6 +143,7 @@ func search(fsys fs.FS, query string, limit int, withEvidence, outlined bool) (p
 					Headings: snippet.Headings, Text: snippet.Text, Kind: snippet.Kind,
 				})
 			}
+			withLinks(&item, graph, r.Path)
 			if outlined {
 				withOutline(&item, source)
 			}

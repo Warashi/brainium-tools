@@ -31,6 +31,7 @@ func renderTree(report Report, sel selection) []byte {
 	fmt.Fprintln(&b, "No match does not establish absence.")
 	fmt.Fprintln(&b, "Outline lines are start-end source lines with sizes; > marks sections holding matched lines.")
 	fmt.Fprintln(&b, "tree: worth navigating the outline; read whole: reading the note costs less, so its headings are listed as Key.")
+	fmt.Fprintln(&b, linksLegend)
 	fmt.Fprintf(&b, "Matches: total %d; returned %d\n", report.TotalMatches, sel.items)
 	fmt.Fprintf(&b, "Result limit truncated: %s\n", yesNo(report.Truncated))
 	fmt.Fprintf(&b, "Byte budget truncated: %s\n", yesNo(sel.budgetTruncated))
@@ -48,6 +49,7 @@ func renderTree(report Report, sel selection) []byte {
 		if metadata := compactMetadata(item); metadata != "" {
 			fmt.Fprintf(&b, "Metadata: %s\n", metadata)
 		}
+		writeLinks(&b, report, sel, item)
 		navigation := "read whole"
 		if item.Tree {
 			navigation = "tree"

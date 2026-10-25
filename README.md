@@ -58,6 +58,10 @@ $ notesearch -format json <query>
 $ notesearch -format paths <query>
 ```
 
+text と tree は、ヒットしたノートとリンクでつながる `notes/` のノートを
+`Links:` に並べる。順位には効かない。検索語が重ならなくても 1 手で届く
+ノートを見せるためのもの。
+
 ## 開発
 
 ```console

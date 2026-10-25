@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -38,6 +40,9 @@ type Item struct {
 	Verified   string    `json:"verified"`
 	StaleAfter string    `json:"stale_after"`
 	Snippets   []Snippet `json:"snippets"`
+	// ノート間のリンク。無ければ JSON に出さない
+	LinksTo    []Link `json:"links_to,omitempty"`
+	LinkedFrom []Link `json:"linked_from,omitempty"`
 	// 以下は FormatTree でだけ使う。他の形式の出力を変えないよう、空なら
 	// JSON に出さない
 	Bytes    int       `json:"bytes,omitempty"`
@@ -45,6 +50,12 @@ type Item struct {
 	Opening  string    `json:"opening,omitempty"`
 	KeyItems []string  `json:"key_items,omitempty"`
 	Outline  []Section `json:"outline,omitempty"`
+}
+
+// Link is the other end of an id link between notes.
+type Link struct {
+	Path  string `json:"path"`
+	Title string `json:"title"`
 }
 
 // Report contains ranked search results. Scope should state the corpus searched.
@@ -157,6 +168,7 @@ func renderText(report Report, sel selection) []byte {
 	fmt.Fprintln(&b, "Lexical matches only; excerpts are incomplete and do not establish full conclusions.")
 	fmt.Fprintln(&b, "No match does not establish absence.")
 	fmt.Fprintln(&b, "Metadata status and dates are descriptive labels, not freshness guarantees.")
+	fmt.Fprintln(&b, linksLegend)
 	fmt.Fprintf(&b, "Matches: total %d; returned %d\n", report.TotalMatches, sel.items)
 	fmt.Fprintf(&b, "Result limit truncated: %s\n", yesNo(report.Truncated))
 	fmt.Fprintf(&b, "Byte budget truncated: %s\n", yesNo(sel.budgetTruncated))
@@ -174,6 +186,7 @@ func renderText(report Report, sel selection) []byte {
 		if metadata := compactMetadata(item); metadata != "" {
 			fmt.Fprintf(&b, "Metadata: %s\n", metadata)
 		}
+		writeLinks(&b, report, sel, item)
 		for j := 0; j < sel.snippets[i]; j++ {
 			snippet := item.Snippets[j]
 			fmt.Fprintf(&b, "Source lines %d-%d%s; headings: %s\n", snippet.StartLine, snippet.EndLine, snippetKind(snippet.Kind), quotedHeadings(snippet.Headings))
@@ -279,6 +292,42 @@ func compactMetadata(item Item) string {
 		}
 	}
 	return strings.Join(fields, "; ")
+}
+
+// writeLinks merges both directions into one line per note and refers to
+// notes already shown in this report by result number. Titles are left to
+// JSON: with them, links grew text reports by about a quarter and pushed
+// tree reports over the default budget, while the English slug in the path
+// already names the note.
+const linksLegend = "Links: -> links to, <- linked from, <> both; (Result N) is shown in this report."
+
+func writeLinks(b *strings.Builder, report Report, sel selection, item Item) {
+	direction := make(map[string]string)
+	for _, l := range item.LinksTo {
+		direction[l.Path] = "->"
+	}
+	for _, l := range item.LinkedFrom {
+		if direction[l.Path] == "->" {
+			direction[l.Path] = "<>"
+		} else {
+			direction[l.Path] = "<-"
+		}
+	}
+	if len(direction) == 0 {
+		return
+	}
+	shown := make(map[string]int, sel.items)
+	for i := 0; i < sel.items; i++ {
+		shown[report.Results[i].Path] = i + 1
+	}
+	fmt.Fprintln(b, "Links:")
+	for _, p := range slices.Sorted(maps.Keys(direction)) {
+		if n, ok := shown[p]; ok {
+			fmt.Fprintf(b, "  %s %s (Result %d)\n", direction[p], quote(p), n)
+		} else {
+			fmt.Fprintf(b, "  %s %s\n", direction[p], quote(p))
+		}
+	}
 }
 
 func writeSourceLines(b *strings.Builder, snippet Snippet) {
