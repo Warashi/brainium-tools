@@ -36,7 +36,7 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
 ## orglint が検査する規約
 
 - ID の重複と `id:` リンク先の存在
-- ファイル配置と命名規則
+- ファイル配置と命名規則。`notes/` と `work/` には org 以外も含めてサブディレクトリを置かない
 - `README.org` を除く全ファイルのファイルレベル `:ID:` と `#+title:`
 - `inbox.org` の capture 見出しの `:ID:` と `:CAPTURED:`
 - `notes/` の成熟度。`:STATUS:` は `draft` / `stable` / `deprecated` の

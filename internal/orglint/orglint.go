@@ -136,6 +136,11 @@ func Run(fsys fs.FS, targets ...string) ([]Problem, error) {
 		problems = append(problems, checkEmphasis(f)...)
 	}
 	problems = append(problems, checkIDs(files, archives)...)
+	dirs, err := checkFlatDirs(fsys)
+	if err != nil {
+		return nil, err
+	}
+	problems = append(problems, dirs...)
 
 	kept := problems[:0]
 	filter := Targets(targets)
