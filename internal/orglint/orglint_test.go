@@ -511,13 +511,15 @@ func TestCheckFormat(t *testing.T) {
 		}
 	})
 
-	t.Run("リンクの直前で折り返した継続行は字下げを数えない", func(t *testing.T) {
-		// 折り返しで挿入された字下げがリンクの不可視属性を継承するため、
-		// 2 行目は素の幅では 72 桁だが Emacs には 70 桁に見える。
+	t.Run("リンクの直前の空白で折り返した継続行は字下げを数える", func(t *testing.T) {
 		link := "[[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][行幅]]"
-		body := "- " + strings.Repeat("あ", 34) + "\n  " + link + strings.Repeat("あ", 33) + "\n"
-		if got := widthProblems(t, body); len(got) != 0 {
+		stable := "- " + strings.Repeat("あ", 34) + "\n  " + link + strings.Repeat("あ", 32) + "\n  あ\n"
+		if got := widthProblems(t, stable); len(got) != 0 {
 			t.Errorf("want no problems, got %v", got)
+		}
+		overflow := "- " + strings.Repeat("あ", 34) + "\n  " + link + strings.Repeat("あ", 33) + "\n"
+		if got := widthProblems(t, overflow); len(got) != 1 {
+			t.Errorf("want 1 problem, got %v", got)
 		}
 	})
 }

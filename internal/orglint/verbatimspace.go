@@ -39,3 +39,13 @@ func spaceVerbatim(line string) string {
 	}
 	return line
 }
+
+// isWidePunct は全角の句読点・括弧・記号かを判定する。
+func isWidePunct(r rune) bool {
+	return runeWidth(r) == 2 && (unicode.IsPunct(r) || unicode.IsSymbol(r))
+}
+
+// isWideLetter は全角の文字のうち句読点・記号ではないものを判定する。
+func isWideLetter(r rune) bool {
+	return runeWidth(r) == 2 && !unicode.IsPunct(r) && !unicode.IsSymbol(r) && !unicode.IsSpace(r)
+}

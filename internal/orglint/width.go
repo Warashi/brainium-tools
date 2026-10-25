@@ -367,3 +367,7 @@ var wideRanges = [][2]rune{
 	{0x1FB00, 0x1FB92},
 	{0x20000, 0x3FFFF}, // CJK 統合漢字拡張 B 以降
 }
+
+// verbatimDelims はコード表記の区切り記号。強調の区切りは他にもあるが、
+// 前後の文字を検査しているのはこの 2 つだけ。
+const verbatimDelims = "=~"

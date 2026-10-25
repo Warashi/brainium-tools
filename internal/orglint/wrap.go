@@ -93,8 +93,13 @@ func fillBreak(line string, limit int, offset int, hideIndent bool) int {
 
 // kinsoku は禁則処理で折り返し位置をずらす。Emacs の kinsoku 関数と
 // 同じく、行頭に置けない文字はまず行末を伸ばして飲み込み(追い出し)、
-// 伸ばしすぎになるなら手前の折り返し点まで戻す(追い込み)。
+// 伸ばしすぎになるなら手前の折り返し点まで戻す(追い込み)。Emacs の fill
+// は折り返し位置の前後がどちらも ASCII なら kinsoku を呼ばないので、
+// 「あ ( foo」の ( は空白の位置で折り返して行末に残る。
 func kinsoku(rs []rune, ws []int, at, limit, offset int) int {
+	if at > 0 && at < len(rs) && rs[at-1] <= unicode.MaxASCII && rs[at] <= unicode.MaxASCII {
+		return at
+	}
 	if at < len(rs) && containsRune(headBanned, rs[at]) {
 		if longer := kinsokuLonger(rs, ws, at, limit, offset); longer >= 0 {
 			return longer

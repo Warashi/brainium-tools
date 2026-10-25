@@ -42,7 +42,9 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
 - `notes/` の成熟度。`:STATUS:` は `draft` / `stable` / `deprecated` の
   いずれかで、`stable` なら `:VERIFIED:` が必須。`:VERIFIED:` と
   `:STALE_AFTER:` は org の日付として読めること
-- 本文段落の折り返し(全角幅換算 70 桁、Emacs の `fill-column` 70 相当)
+- 本文段落の折り返し(全角幅換算 70 桁、Emacs の `fill-column` 70 相当)。
+  行のつなぎ方は `fill-separate-heterogeneous-words-with-space` を `t` に
+  した Emacs に合わせ、つなぎ目の両側が和文のときだけ詰める
 - `=…=` / `~…~` のコード表記の前後の文字
 - `tasks.org` の 1 task が 40 行以内であること
 

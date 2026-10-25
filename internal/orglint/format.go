@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode"
 )
 
 // listItemRe はリスト項目の行頭マーカー。継続行はマーカーの幅だけ
@@ -107,106 +106,6 @@ func fillOnce(para []string) []string {
 		text = indent + trimmed
 	}
 	return append(out, text)
-}
-
-// joinLine は折り返された 2 行をつなぐ。欧文どうしは空白で区切り、
-// 和文の途中はそのままつなぐ。和文と欧文の境界には空白を補う。元の
-// 行が空白の位置で折り返されていた場合にその空白を復元するためで、
-// 「全角と半角英数の間に空白を置く」このリポジトリの書き方に合わせる。
-// 空白のない境界にも空白が入るので幅が 1 桁増え、Emacs の折り返し位置
-// とはずれうる。空白を補わない側に倒すと、折り返しで空白が消えた境界を
-// 復元できずに書き方の側が崩れるので、そちらは採らない。
-func joinLine(a, b string) string {
-	if a == "" || b == "" {
-		return a + b
-	}
-	if needsSpace(markupEdge(a, true), markupEdge(b, false)) {
-		return a + " " + b
-	}
-	return a + b
-}
-
-// markupEdge は s の末尾(fromEnd)または先頭にある、表示される文字を
-// 返す。Emacs が隠すリンクの記法だけを読み飛ばすので、[[id:x][gopher]]
-// では説明文の末尾が、=foo= では区切りの = 自体が端になる。前者は記法が
-// 見えないので説明文で空白の要否が決まり、後者は = が見えるぶん和文と
-// の間に空白が要る。隠れる文字しかなければ端の文字をそのまま返す。
-func markupEdge(s string, fromEnd bool) rune {
-	rs := []rune(s)
-	ws := runeWidths(s, false)
-	if fromEnd {
-		for i := range slices.Backward(rs) {
-			if ws[i] > 0 {
-				return rs[i]
-			}
-		}
-		return rs[len(rs)-1]
-	}
-	for i := range rs {
-		if ws[i] > 0 {
-			return rs[i]
-		}
-	}
-	return rs[0]
-}
-
-// markupDelims は org のマークアップの区切り記号。記号ではあるが、
-// =orglint= のようなコード表記を和文の間に置くときは空白で区切る書き方を
-// しているので、空白を要する側として扱う。
-const markupDelims = "=~*/_"
-
-// trailingPunct は直後に空白を置く半角の区切り。「基盤になる: 内容」の
-// ように、和文が続く場合も空白を空ける書き方をしている。手前に和文が
-// あっても空白は入れないので、spacedLatin とは違って向きがある。
-const trailingPunct = ":;,.!?"
-
-func needsSpace(a, b rune) bool {
-	if runeWidth(a) == 1 && runeWidth(b) == 1 {
-		return true
-	}
-	if containsRune(trailingPunct, a) && isWideLetter(b) {
-		return true
-	}
-	// 全角の句読点や括弧とコード表記の区切りの間にも空白が要る。org は
-	// 前後に半角しか許さないので、ここを詰めると組まれない。折り返しで
-	// 空白が消えた境界を復元できないと、checkEmphasis の違反を -fix が
-	// 作り直すことになる。
-	if isWidePunct(a) && containsRune(verbatimDelims, b) {
-		return true
-	}
-	if containsRune(verbatimDelims, a) && isWidePunct(b) {
-		return true
-	}
-	return (isWideLetter(a) && spacedLatin(b)) || (spacedLatin(a) && isWideLetter(b))
-}
-
-// verbatimDelims はコード表記の区切り記号。強調の区切りは他にもあるが、
-// 前後の文字を検査しているのはこの 2 つだけなので、空白の復元もここに
-// 揃える。
-const verbatimDelims = "=~"
-
-// isWidePunct は全角の句読点・括弧・記号かを判定する。
-func isWidePunct(r rune) bool {
-	return runeWidth(r) == 2 && (unicode.IsPunct(r) || unicode.IsSymbol(r))
-}
-
-// spacedLatin は和文との間に空白を置く半角文字かを判定する。「実施した
-// (2026-07-22)」のように括弧や句読点は和文に直接続けて書くので、和文の
-// 側だけを見て空白を補うと元になかった空白が入る。
-func spacedLatin(r rune) bool {
-	if runeWidth(r) != 1 {
-		return false
-	}
-	if containsRune(markupDelims, r) {
-		return true
-	}
-	return !unicode.IsPunct(r) && !unicode.IsSymbol(r) && !unicode.IsSpace(r)
-}
-
-// isWideLetter は全角の文字のうち句読点・記号ではないものを判定する。
-// 「。」や「」の直後には空白を補わない。
-func isWideLetter(r rune) bool {
-	return runeWidth(r) == 2 && !unicode.IsPunct(r) && !unicode.IsSymbol(r) && !unicode.IsSpace(r)
 }
 
 // continuationIndent は段落の 2 行目以降に付ける字下げを返す。
