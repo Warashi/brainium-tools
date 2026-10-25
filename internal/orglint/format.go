@@ -11,11 +11,18 @@ import (
 // 字下げする。
 var listItemRe = regexp.MustCompile(`^\s*(?:[-+]|[0-9]+[.)])\s+`)
 
-// Format は本文の段落を fillColumn で折り返し直した内容を返す。見出し・
-// 表・ブロック・ドロワーには手を入れない。
+// Format は本文の段落を fillColumn で折り返し直した内容を返す。和文に
+// 直接続いて組まれないコード表記には、先に空白を補う。見出し・表・ブ
+// ロック・ドロワーには手を入れない。
 func Format(data []byte) []byte {
 	lines := strings.Split(string(data), "\n")
-	out, _ := formatLines(lines, scanLines(lines))
+	kinds := scanLines(lines)
+	for i := range lines {
+		if kinds[i] == kindBody {
+			lines[i] = spaceVerbatim(lines[i])
+		}
+	}
+	out, _ := formatLines(lines, kinds)
 	return []byte(strings.Join(out, "\n"))
 }
 
