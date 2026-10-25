@@ -3,8 +3,9 @@
 //	orglint [-fix | -fix-only] [path...]
 //
 // 違反があれば 1 行 1 件で出力し、終了コード 1 を返す。-fix を付けると
-// 本文の段落を折り返し直してから検査する。-fix-only は折り返しを直すだ
-// けで検査せず、直せない違反が残っていても正常終了する。treefmt のよう
+// 本文の段落を整形(折り返しと、和文に続くコード表記の空白)してから検
+// 査する。-fix-only は整形するだけで検査せず、直せない違反が残っていて
+// も正常終了する。treefmt のよう
 // に formatter の非ゼロ終了を失敗として扱う入口から呼ぶためのもの。
 // path にはファイルとディレクトリのどちらも渡せる。省略するとカレント
 // ディレクトリを渡したのと同じで、リポジトリ全体が対象になる。
@@ -22,8 +23,8 @@ import (
 )
 
 func main() {
-	fix := flag.Bool("fix", false, "本文の段落を折り返し直して書き戻してから検査する")
-	fixOnly := flag.Bool("fix-only", false, "本文の段落を折り返し直して書き戻すだけで検査しない")
+	fix := flag.Bool("fix", false, "本文の段落を整形して書き戻してから検査する")
+	fixOnly := flag.Bool("fix-only", false, "本文の段落を整形して書き戻すだけで検査しない")
 	flag.Parse()
 
 	if err := run(mode{fix: *fix || *fixOnly, check: !*fixOnly}, flag.Args()); err != nil {
@@ -34,7 +35,7 @@ func main() {
 
 // mode は実行する工程を表す。
 type mode struct {
-	fix   bool // 折り返しを直して書き戻す
+	fix   bool // 整形して書き戻す
 	check bool // 検査して違反を報告する
 }
 
@@ -139,7 +140,7 @@ func fixAll(root string, paths []string) error {
 		if err := os.WriteFile(name, formatted, info.Mode().Perm()); err != nil {
 			return err
 		}
-		fmt.Println(p + ": 折り返しを直した")
+		fmt.Println(p + ": 整形した")
 	}
 	return nil
 }
