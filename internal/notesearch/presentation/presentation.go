@@ -45,11 +45,12 @@ type Item struct {
 	LinkedFrom []Link `json:"linked_from,omitempty"`
 	// 以下は FormatTree でだけ使う。他の形式の出力を変えないよう、空なら
 	// JSON に出さない
-	Bytes    int       `json:"bytes,omitempty"`
-	Tree     bool      `json:"tree,omitempty"`
-	Opening  string    `json:"opening,omitempty"`
-	KeyItems []string  `json:"key_items,omitempty"`
-	Outline  []Section `json:"outline,omitempty"`
+	Bytes    int              `json:"bytes,omitempty"`
+	Tree     bool             `json:"tree,omitempty"`
+	Opening  string           `json:"opening,omitempty"`
+	KeyItems []string         `json:"key_items,omitempty"`
+	Outline  []Section        `json:"outline,omitempty"`
+	Matched  []MatchedSection `json:"matched_sections,omitempty"`
 }
 
 // Link is the other end of an id link between notes.

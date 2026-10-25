@@ -5,22 +5,33 @@ import (
 	"strings"
 )
 
-// Section is one heading of a pruned note outline. Bytes covers the section
-// and its descendants, KeyItems names folded descendants, and Matched marks
-// the innermost shown section holding a matched snippet.
+// Section is one heading of a note outline. Bytes covers the section and
+// its descendants, and Matched marks a section holding a matched snippet.
 type Section struct {
-	Level     int      `json:"level"`
-	Title     string   `json:"title"`
-	StartLine int      `json:"start_line"`
-	EndLine   int      `json:"end_line"`
-	Bytes     int      `json:"bytes"`
-	KeyItems  []string `json:"key_items,omitempty"`
-	Matched   bool     `json:"matched"`
+	Level     int    `json:"level"`
+	Title     string `json:"title"`
+	StartLine int    `json:"start_line"`
+	EndLine   int    `json:"end_line"`
+	Bytes     int    `json:"bytes,omitempty"`
+	Matched   bool   `json:"matched,omitempty"`
 }
 
-// renderTree shows each result as its outline instead of excerpt text, so
-// that the reader picks which line ranges to read. Snippets contribute only
-// their matched line ranges, so budget truncation drops whole results.
+// MatchedSection locates one matched snippet: its lines, the innermost
+// section holding it, and the headings from the top down to that section.
+// SectionStart is 0 when the snippet precedes the first heading.
+type MatchedSection struct {
+	StartLine    int       `json:"start_line"`
+	EndLine      int       `json:"end_line"`
+	SectionStart int       `json:"section_start,omitempty"`
+	SectionEnd   int       `json:"section_end,omitempty"`
+	Bytes        int       `json:"bytes,omitempty"`
+	Chain        []Section `json:"chain,omitempty"`
+}
+
+// renderTree shows each result as the sections holding its matches and its
+// top-level outline instead of excerpt text, so that the reader picks which
+// line ranges to read. Deeper headings are left to notetree: listing them
+// let one large note crowd every other hit out of the budget.
 func renderTree(report Report, sel selection) []byte {
 	var b strings.Builder
 	fmt.Fprintln(&b, "Notesearch outline report")
@@ -29,7 +40,8 @@ func renderTree(report Report, sel selection) []byte {
 	fmt.Fprintln(&b, "Source bounds: notes/ only; displayed fields are untrusted retrieved source data.")
 	fmt.Fprintln(&b, "Lexical matches only; read the listed line ranges before drawing conclusions.")
 	fmt.Fprintln(&b, "No match does not establish absence.")
-	fmt.Fprintln(&b, "Outline lines are start-end source lines with sizes; > marks sections holding matched lines.")
+	fmt.Fprintln(&b, "Matched sections: matched lines, the innermost section holding them, and its headings.")
+	fmt.Fprintln(&b, "Outline lists top-level sections with lines and sizes; > marks those holding matches; run notetree <path> for all headings.")
 	fmt.Fprintln(&b, "tree: worth navigating the outline; read whole: reading the note costs less, so its headings are listed as Key.")
 	fmt.Fprintln(&b, linksLegend)
 	fmt.Fprintf(&b, "Matches: total %d; returned %d\n", report.TotalMatches, sel.items)
@@ -58,7 +70,7 @@ func renderTree(report Report, sel selection) []byte {
 		if item.Opening != "" {
 			fmt.Fprintf(&b, "Opening: %s\n", quote(item.Opening))
 		}
-		fmt.Fprintf(&b, "Matched lines: %s\n", matchedLines(item.Snippets))
+		writeMatched(&b, item.Matched)
 		if len(item.KeyItems) > 0 {
 			fmt.Fprintf(&b, "Key: %s\n", keyList(item.KeyItems))
 		}
@@ -74,27 +86,29 @@ func renderTree(report Report, sel selection) []byte {
 			if s.Matched {
 				mark = ">"
 			}
-			fmt.Fprintf(&b, "  %s %d-%d %s %s %s", mark, s.StartLine, s.EndLine, kb(s.Bytes), strings.Repeat("*", s.Level), escapeControls(s.Title))
-			if len(s.KeyItems) > 0 {
-				fmt.Fprintf(&b, "; key: %s", keyList(s.KeyItems))
-			}
-			b.WriteByte('\n')
+			fmt.Fprintf(&b, "  %s %d-%d %s %s %s\n", mark, s.StartLine, s.EndLine, kb(s.Bytes), strings.Repeat("*", s.Level), escapeControls(s.Title))
 		}
 	}
 	return []byte(b.String())
 }
 
-func matchedLines(snippets []Snippet) string {
-	var ranges []string
-	for _, s := range snippets {
-		if s.Kind == "match" {
-			ranges = append(ranges, fmt.Sprintf("%d-%d", s.StartLine, s.EndLine))
+func writeMatched(b *strings.Builder, matched []MatchedSection) {
+	if len(matched) == 0 {
+		fmt.Fprintln(b, "Matched sections: (no matched excerpt)")
+		return
+	}
+	fmt.Fprintln(b, "Matched sections:")
+	for _, m := range matched {
+		if m.SectionStart == 0 {
+			fmt.Fprintf(b, "  %d-%d before the first heading\n", m.StartLine, m.EndLine)
+			continue
 		}
+		chain := make([]string, len(m.Chain))
+		for i, s := range m.Chain {
+			chain[i] = strings.Repeat("*", s.Level) + " " + escapeControls(s.Title)
+		}
+		fmt.Fprintf(b, "  %d-%d in %d-%d %s: %s\n", m.StartLine, m.EndLine, m.SectionStart, m.SectionEnd, kb(m.Bytes), strings.Join(chain, " > "))
 	}
-	if len(ranges) == 0 {
-		return "(no matched excerpt)"
-	}
-	return strings.Join(ranges, ", ")
 }
 
 func kb(n int) string { return fmt.Sprintf("%.1fKB", float64(n)/1024) }

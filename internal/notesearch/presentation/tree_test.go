@@ -13,16 +13,20 @@ func treeReport() Report {
 	r.Results[0].Tree = true
 	r.Results[0].Opening = "猫の話。"
 	r.Results[0].Outline = []Section{
-		{Level: 1, Title: "生き物", StartLine: 2, EndLine: 9, Bytes: 1024},
-		{Level: 2, Title: "猫\t偽", StartLine: 3, EndLine: 5, Bytes: 512, KeyItems: []string{"子猫"}, Matched: true},
-		{Level: 2, Title: "犬", StartLine: 6, EndLine: 9, Bytes: 410},
+		{Level: 1, Title: "生き物", StartLine: 2, EndLine: 9, Bytes: 1024, Matched: true},
+		{Level: 1, Title: "植物", StartLine: 10, EndLine: 12, Bytes: 300},
 	}
+	r.Results[0].Matched = []MatchedSection{{
+		StartLine: 3, EndLine: 4, SectionStart: 3, SectionEnd: 5, Bytes: 512,
+		Chain: []Section{{Level: 1, Title: "生き物"}, {Level: 2, Title: "猫\t偽"}},
+	}}
 	r.Results[1].Bytes = 2458
+	r.Results[1].Matched = []MatchedSection{{StartLine: 1, EndLine: 2}}
 	r.Results[1].KeyItems = []string{"概要", "詳細"}
 	return r
 }
 
-func TestRenderTreeShowsPrunedOutlineAndMatchedSections(t *testing.T) {
+func TestRenderTreeShowsTopLevelOutlineAndMatchedSections(t *testing.T) {
 	got, err := Render(treeReport(), FormatTree, 10_000)
 	if err != nil {
 		t.Fatal(err)
@@ -35,8 +39,9 @@ func TestRenderTreeShowsPrunedOutlineAndMatchedSections(t *testing.T) {
 		`Title: "猫\n偽の見出し"`,
 		"Size: 47.5KB; tree\n",
 		"Opening: \"猫の話。\"\n",
-		"Matched lines: 3-4\n",
-		"Outline:\n    2-9 1.0KB * 生き物\n  > 3-5 0.5KB ** 猫\\t偽; key: 子猫\n    6-9 0.4KB ** 犬\n",
+		"Matched sections:\n  3-4 in 3-5 0.5KB: * 生き物 > ** 猫\\t偽\n",
+		"Outline:\n  > 2-9 1.0KB * 生き物\n    10-12 0.3KB * 植物\n",
+		"notetree <path>",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("tree missing %q:\n%s", want, text)
@@ -54,7 +59,7 @@ func TestRenderTreeFoldedNoteListsKeyItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "Path: \"notes/other.org\"\nTitle: \"別のノート\"\nSize: 2.4KB; read whole\n" +
-		"Matched lines: (no matched excerpt)\nKey: 概要 / 詳細\n"
+		"Matched sections:\n  1-2 before the first heading\nKey: 概要 / 詳細\n"
 	if !strings.Contains(string(got), want) {
 		t.Errorf("folded note not reported as %q:\n%s", want, got)
 	}
@@ -63,11 +68,12 @@ func TestRenderTreeFoldedNoteListsKeyItems(t *testing.T) {
 func TestRenderTreeWithoutHeadingsSaysSo(t *testing.T) {
 	r := treeReport()
 	r.Results[1].KeyItems = nil
+	r.Results[1].Matched = nil
 	got, err := Render(r, FormatTree, 10_000)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(got), "Matched lines: (no matched excerpt)\nOutline: (no headings)\n") {
+	if !strings.Contains(string(got), "Matched sections: (no matched excerpt)\nOutline: (no headings)\n") {
 		t.Errorf("note without headings not reported:\n%s", got)
 	}
 }
