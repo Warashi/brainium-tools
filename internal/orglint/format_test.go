@@ -87,6 +87,37 @@ func TestFormat(t *testing.T) {
 		}
 	})
 
+	t.Run("見出し直後の CLOSED の行は次の段落とつながない", func(t *testing.T) {
+		closed := "CLOSED: [2026-10-30 Fri 08:25]"
+		got := format(t, "* DONE 見出し\n"+closed+"\n"+strings.Repeat("あ", 50)+"\n")
+		want := "* DONE 見出し\n" + closed + "\n" +
+			strings.Repeat("あ", 35) + "\n" + strings.Repeat("あ", 15) + "\n"
+		if got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+
+	t.Run("見出し直後の計画行には触れない", func(t *testing.T) {
+		for _, planning := range []string{
+			"SCHEDULED: <2026-10-20 Tue +1w>",
+			"DEADLINE: <2026-10-20 Tue>",
+			"CLOSED: [2026-10-30 Fri 08:25] SCHEDULED: <2026-10-20 Tue>",
+		} {
+			body := "** TODO 見出し\n" + planning + "\n本文。\n"
+			if got := format(t, body); got != body {
+				t.Errorf("got:\n%s\nwant:\n%s", got, body)
+			}
+		}
+	})
+
+	t.Run("見出しの直後にない計画行の書き出しは本文として扱う", func(t *testing.T) {
+		got := format(t, "SCHEDULED: と書く行。\nもう 1 行。\n")
+		want := "SCHEDULED: と書く行。もう 1 行。\n"
+		if got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+
 	t.Run("リンクの記法は幅に数えずに折り返す", func(t *testing.T) {
 		// 説明文 10 桁 + 本文 70 桁。記法を数えると説明文の途中で切れる。
 		link := "[[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][org の行幅]]"

@@ -168,7 +168,7 @@ func Run(fsys fs.FS, targets ...string) ([]Problem, error) {
 type lineKind int
 
 const (
-	kindOther  lineKind = iota // 空行・見出し・キーワード行・表・コメント
+	kindOther  lineKind = iota // 空行・見出し・計画行・キーワード行・表・コメント
 	kindBody                   // 折り返しの対象になる本文行
 	kindDrawer                 // ドロワーの内側
 	kindBlock                  // ブロックの内側と境界行
@@ -178,6 +178,10 @@ const (
 // fixedWidthRe は org の固定幅行。": " で始まる行と ":" だけの行が該当
 // する。ドロワーの :NAME: はコロンの直後に空白を置かないので当たらない。
 var fixedWidthRe = regexp.MustCompile(`^[ \t]*:(?: .*)?$`)
+
+// planningRe は org の計画行(org-planning-line-re)。見出しの直後の行
+// だけが計画行になり、それ以外の位置では本文として扱われる。
+var planningRe = regexp.MustCompile(`^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
 
 // scanLines は各行の種類を判定する。ブロック(#+begin_ 〜 #+end_)と
 // ドロワー(:NAME: 〜 :END:)は開始行から終了行まで状態を持ち越す。固定幅
@@ -205,6 +209,8 @@ func scanLines(lines []string) []lineKind {
 		case drawerBeginRe.MatchString(line) && !drawerEndRe.MatchString(line):
 			kinds[i] = kindDrawer
 			inDrawer = true
+		case i > 0 && kinds[i-1] == kindOther && headingRe.MatchString(lines[i-1]) && planningRe.MatchString(line):
+			kinds[i] = kindOther
 		case fixedWidthRe.MatchString(line):
 			kinds[i] = kindFixed
 		case isBodyLine(line):

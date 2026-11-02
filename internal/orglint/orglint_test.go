@@ -415,6 +415,13 @@ func TestCheckFormat(t *testing.T) {
 		}
 	})
 
+	t.Run("見出し直後の計画行は段落に含めない", func(t *testing.T) {
+		body := "* DONE 見出し\nCLOSED: [2026-10-30 Fri 08:25]\nあいうえお。\n"
+		if got := widthProblems(t, body); len(got) != 0 {
+			t.Errorf("want no problems, got %v", got)
+		}
+	})
+
 	t.Run("段落を跨いで繰り上げはしない", func(t *testing.T) {
 		body := "あいうえお。\n\n- かきくけこ\n- さしすせそ\n"
 		if got := widthProblems(t, body); len(got) != 0 {
