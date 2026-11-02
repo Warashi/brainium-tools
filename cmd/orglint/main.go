@@ -12,6 +12,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
@@ -133,14 +134,46 @@ func fixAll(root string, paths []string) error {
 		if string(formatted) == string(data) {
 			continue
 		}
-		info, err := os.Stat(name)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(name, formatted, info.Mode().Perm()); err != nil {
+		if err := replaceIfUnchanged(name, data, formatted); err != nil {
 			return err
 		}
 		fmt.Println(p + ": 整形した")
 	}
 	return nil
+}
+
+// replaceIfUnchanged は name の内容がまだ orig のままなら data に置き換
+// える。同じディレクトリの一時ファイルに書いてから rename するので、他
+// のプロセスには置き換え前か後のどちらかだけが見える。直前に読み直して
+// orig と違えば、他のセッションの変更を消さないよう書かずにエラーを返す。
+func replaceIfUnchanged(name string, orig, data []byte) error {
+	info, err := os.Stat(name)
+	if err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(name), "."+filepath.Base(name)+".orglint-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(info.Mode().Perm()); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+
+	current, err := os.ReadFile(name)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(current, orig) {
+		return fmt.Errorf("%s は読んだ後に変更されたので書き戻さなかった", name)
+	}
+	return os.Rename(tmp.Name(), name)
 }
