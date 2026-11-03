@@ -27,16 +27,27 @@ type diffNode struct {
 // TestParseMatchesOrgElement は Parse の木が Emacs の org-element と一致
 // することを確かめる。Emacs が無ければ飛ばすが、ORG_DIFF_REQUIRE=1 なら
 // 失敗にして、正解を出せないまま通るのを防ぐ。ORG_DIFF_CORPUS にディレ
-// クトリを渡すと、その配下の org ファイルも比べる。testdata/objects は
-// object まで、それ以外は element の粒度で比べる。
+// クトリを渡すと、その配下の org ファイルも比べる。
 func TestParseMatchesOrgElement(t *testing.T) {
 	emacs := lookEmacs(t)
-	elements := orgFiles(t, "testdata/cases")
+	files := orgFiles(t, "testdata/cases")
 	if corpus := os.Getenv("ORG_DIFF_CORPUS"); corpus != "" {
-		elements = append(elements, orgFiles(t, corpus)...)
+		files = append(files, orgFiles(t, corpus)...)
 	}
-	compareWithOrgElement(t, emacs, "element", elements)
-	compareWithOrgElement(t, emacs, "object", orgFiles(t, "testdata/objects"))
+	want := runOrgElement(t, emacs, files)
+	for _, file := range files {
+		t.Run(file, func(t *testing.T) {
+			data, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			source := string(data)
+			got := toDiffNode(Parse(source), runeOffsets(source))
+			if diff := firstDiff(got, want[file], got.Type); diff != "" {
+				t.Error(diff)
+			}
+		})
+	}
 }
 
 // lookEmacs は emacs のパスを返す。無ければテストを飛ばすが、
@@ -67,44 +78,6 @@ func runEmacs(t *testing.T, emacs string, args ...string) []byte {
 	return out
 }
 
-func compareWithOrgElement(t *testing.T, emacs, granularity string, files []string) {
-	t.Helper()
-	want := runOrgElement(t, emacs, granularity, files)
-	for _, file := range files {
-		t.Run(file, func(t *testing.T) {
-			data, err := os.ReadFile(file)
-			if err != nil {
-				t.Fatal(err)
-			}
-			source := string(data)
-			tree := Parse(source)
-			if granularity == "element" {
-				dropObjects(tree)
-			}
-			got := toDiffNode(tree, runeOffsets(source))
-			if diff := firstDiff(got, want[file], got.Type); diff != "" {
-				t.Error(diff)
-			}
-		})
-	}
-}
-
-// objectTypes は Parse が作る object の種類。element の粒度で比べると
-// きに木から除く。
-var objectTypes = map[Type]bool{TypeVerbatim: true, TypeCode: true, TypeTimestamp: true, TypeLink: true, TypeBold: true, TypeLatexFragment: true,
-	TypeSubscript: true, TypeSuperscript: true, TypeTableCell: true}
-
-func dropObjects(n *Node) {
-	var children []*Node
-	for _, c := range n.Children {
-		if !objectTypes[c.Type] {
-			dropObjects(c)
-			children = append(children, c)
-		}
-	}
-	n.Children = children
-}
-
 func orgFiles(t *testing.T, dir string) []string {
 	t.Helper()
 	var files []string
@@ -127,9 +100,9 @@ func orgFiles(t *testing.T, dir string) []string {
 	return files
 }
 
-func runOrgElement(t *testing.T, emacs, granularity string, files []string) map[string]diffNode {
+func runOrgElement(t *testing.T, emacs string, files []string) map[string]diffNode {
 	t.Helper()
-	out := runEmacs(t, emacs, append([]string{"-l", "testdata/org-element.el", granularity}, files...)...)
+	out := runEmacs(t, emacs, append([]string{"-l", "testdata/org-element.el"}, files...)...)
 	var result struct {
 		OrgVersion string              `json:"org_version"`
 		Files      map[string]diffNode `json:"files"`
