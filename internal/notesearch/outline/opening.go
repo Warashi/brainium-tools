@@ -90,3 +90,13 @@ func firstSentence(lines []string, maxBytes int) string {
 	}
 	return text[:cut] + "…"
 }
+
+func heading(line string) (level int, title string, ok bool) {
+	for level < len(line) && line[level] == '*' {
+		level++
+	}
+	if level == 0 || level >= len(line) || (line[level] != ' ' && line[level] != '\t') {
+		return 0, "", false
+	}
+	return level, strings.TrimSpace(line[level:]), true
+}

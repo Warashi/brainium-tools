@@ -4,7 +4,11 @@
 // 作らない。見出しの文字列と原文の行番号だけを返す。
 package outline
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/Warashi/brainium-tools/internal/org"
+)
 
 // Section は見出し 1 つと、その配下を含む行範囲。行番号は 1 始まりで、
 // EndLine は次の同じか浅い見出しの直前、無ければ最終行。
@@ -15,29 +19,41 @@ type Section struct {
 	EndLine   int    `json:"end_line"`
 }
 
-// Parse は source の見出しを出現順に返す。ブロックの中の行も見出しとし
-// て扱う。org は見出しを跨ぐブロックを認めず、evidence の解析とも揃う。
+// Parse は source の見出しを出現順に返す。見出しの判定と節の範囲は
+// org の parser に従う。
 func Parse(source string) []Section {
-	lines := strings.Split(strings.TrimSuffix(source, "\n"), "\n")
 	var sections []Section
-	// open は閉じていない節の添字。浅い順に積む
-	var open []int
-	for i, line := range lines {
-		level, title, ok := heading(strings.TrimSuffix(line, "\r"))
-		if !ok {
-			continue
+	var walk func(n *org.Node)
+	walk = func(n *org.Node) {
+		for _, c := range n.Children {
+			if c.Type != org.TypeHeadline {
+				continue
+			}
+			sections = append(sections, Section{
+				Level:     c.Level,
+				Title:     strings.TrimSpace(firstLine(source[c.Begin+c.Level:])),
+				StartLine: strings.Count(source[:c.Begin], "\n") + 1,
+				EndLine:   lastLine(source, c.End),
+			})
+			walk(c)
 		}
-		for len(open) > 0 && sections[open[len(open)-1]].Level >= level {
-			sections[open[len(open)-1]].EndLine = i
-			open = open[:len(open)-1]
-		}
-		sections = append(sections, Section{Level: level, Title: title, StartLine: i + 1})
-		open = append(open, len(sections)-1)
 	}
-	for _, j := range open {
-		sections[j].EndLine = len(lines)
-	}
+	walk(org.Parse(source))
 	return sections
+}
+
+func firstLine(s string) string {
+	line, _, _ := strings.Cut(s, "\n")
+	return line
+}
+
+// lastLine は source の end の直前の文字がある行の番号を返す。
+func lastLine(source string, end int) int {
+	n := strings.Count(source[:end], "\n")
+	if end == len(source) && !strings.HasSuffix(source, "\n") {
+		n++
+	}
+	return n
 }
 
 // Innermost は line を含む最も深い節の添字を返す。最初の見出しより前な
@@ -53,14 +69,4 @@ func Innermost(sections []Section, line int) int {
 		}
 	}
 	return found
-}
-
-func heading(line string) (level int, title string, ok bool) {
-	for level < len(line) && line[level] == '*' {
-		level++
-	}
-	if level == 0 || level >= len(line) || (line[level] != ' ' && line[level] != '\t') {
-		return 0, "", false
-	}
-	return level, strings.TrimSpace(line[level:]), true
 }
