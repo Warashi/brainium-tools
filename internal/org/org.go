@@ -418,5 +418,6 @@ func (p *parser) paragraph(begin, limit int) *Node {
 		pos = p.lineEnd(pos)
 	}
 	n := &Node{Type: TypeParagraph, Begin: begin, ContentsBegin: begin, ContentsEnd: pos}
+	n.Children = p.objects(begin, pos, standardSet)
 	return p.finish(n, pos, limit)
 }

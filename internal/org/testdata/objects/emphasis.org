@@ -1,0 +1,17 @@
+=foo= ~bar~ x=baz=y
+=foo=は ab（=a=）cd 「=b=」
+- =item=
+=multi
+line=
+=a=	=b=  
+end =tail=
+== =x = = y=
+'=q=' "~r~" (=s=) {=t=} -=u=-
+=a=b=
+=日本語=、=x=.
+= foo= =foo = =foo
+=
+
+==x=
+
+=a= ~b~

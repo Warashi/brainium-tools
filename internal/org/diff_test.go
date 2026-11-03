@@ -55,12 +55,31 @@ func compareWithOrgElement(t *testing.T, emacs, granularity string, files []stri
 				t.Fatal(err)
 			}
 			source := string(data)
-			got := toDiffNode(Parse(source), runeOffsets(source))
+			tree := Parse(source)
+			if granularity == "element" {
+				dropObjects(tree)
+			}
+			got := toDiffNode(tree, runeOffsets(source))
 			if diff := firstDiff(got, want[file], got.Type); diff != "" {
 				t.Error(diff)
 			}
 		})
 	}
+}
+
+// objectTypes は Parse が作る object の種類。element の粒度で比べると
+// きに木から除く。
+var objectTypes = map[Type]bool{TypeVerbatim: true, TypeCode: true}
+
+func dropObjects(n *Node) {
+	var children []*Node
+	for _, c := range n.Children {
+		if !objectTypes[c.Type] {
+			dropObjects(c)
+			children = append(children, c)
+		}
+	}
+	n.Children = children
 }
 
 func orgFiles(t *testing.T, dir string) []string {
