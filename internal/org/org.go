@@ -21,6 +21,7 @@ const (
 	TypePropertyDrawer Type = "property-drawer"
 	TypeNodeProperty   Type = "node-property"
 	TypeKeyword        Type = "keyword"
+	TypePlanning       Type = "planning"
 )
 
 // Node は木の節点 1 つ。位置は source のバイト位置で、End は直後の空行
@@ -39,7 +40,7 @@ type Node struct {
 func Parse(source string) *Node {
 	p := parser{src: source}
 	root := &Node{Type: TypeOrgData, Begin: 0, End: len(source), ContentsBegin: 0, ContentsEnd: len(source)}
-	root.Children = p.headlineContents(0, len(source))
+	root.Children = p.headlineContents(0, len(source), false)
 	return root
 }
 
@@ -99,10 +100,15 @@ func (p *parser) nextHeadline(pos, limit, maxLevel int) int {
 }
 
 // headlineContents は見出しの中身(先頭の section と子の見出し)を返す。
-func (p *parser) headlineContents(begin, end int) []*Node {
+// afterHeadline は中身が見出しの行の直後から始まるか。
+func (p *parser) headlineContents(begin, end int, afterHeadline bool) []*Node {
 	var nodes []*Node
 	if first := p.nextHeadline(begin, end, 0); first > begin {
-		nodes = append(nodes, p.section(begin, first))
+		mode := modeTop
+		if afterHeadline {
+			mode = modePlanning
+		}
+		nodes = append(nodes, p.section(begin, first, mode))
 		begin = first
 	}
 	for begin < end {
@@ -121,24 +127,41 @@ func (p *parser) headline(begin, end int) *Node {
 		return n
 	}
 	n.ContentsBegin, n.ContentsEnd = contents, end
-	n.Children = p.headlineContents(contents, end)
+	n.Children = p.headlineContents(contents, end, blanks == 0)
 	return n
 }
 
-func (p *parser) section(begin, end int) *Node {
+func (p *parser) section(begin, end int, m mode) *Node {
 	n := &Node{Type: TypeSection, Begin: begin, End: end, ContentsBegin: begin, ContentsEnd: end}
-	n.Children = p.elements(begin, end, true)
+	n.Children = p.elements(begin, end, m)
 	return n
 }
 
-// elements は [begin, end) の要素を並べる。org は PROPERTIES ドロワーを
-// section の先頭でだけ認めるので、propertyDrawer でその位置かを渡す。
-func (p *parser) elements(begin, end int, propertyDrawer bool) []*Node {
+// mode は次の要素として何を優先して認めるか(org-element の MODE)。
+type mode int
+
+const (
+	modeNone mode = iota
+	// modeTop はファイル先頭の section の先頭で、PROPERTIES ドロワーを
+	// 認める。
+	modeTop
+	// modePlanning は見出しの行の直後で、計画行と PROPERTIES ドロワー
+	// を認める。
+	modePlanning
+	// modePropertyDrawer は計画行の直後で、PROPERTIES ドロワーを認める。
+	modePropertyDrawer
+)
+
+// elements は [begin, end) の要素を並べる。
+func (p *parser) elements(begin, end int, m mode) []*Node {
 	var nodes []*Node
 	_, pos := p.skipBlank(begin, end)
 	for pos < end {
 		var n *Node
-		if propertyDrawer {
+		if m == modePlanning {
+			n = p.planning(pos, end)
+		}
+		if n == nil && m != modeNone {
 			n = p.propertyDrawer(pos, end)
 		}
 		if n == nil {
@@ -146,7 +169,11 @@ func (p *parser) elements(begin, end int, propertyDrawer bool) []*Node {
 		}
 		nodes = append(nodes, n)
 		pos = n.End
-		propertyDrawer = false
+		if n.Type == TypePlanning {
+			m = modePropertyDrawer
+		} else {
+			m = modeNone
+		}
 	}
 	return nodes
 }
@@ -181,6 +208,7 @@ var (
 	propertiesRe   = regexp.MustCompile(`(?i)^[ \t]*:PROPERTIES:[ \t]*$`)
 	nodePropertyRe = regexp.MustCompile(`^[ \t]*:\S+:(?:[ \t].*)?$`)
 	keywordRe      = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
+	planningRe     = regexp.MustCompile(`(?i)^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
 )
 
 // drawerEnd は [pos, limit) で最初の :END: 行の位置を返す。無ければ -1。
@@ -207,7 +235,7 @@ func (p *parser) drawer(pos, limit int) *Node {
 	n := &Node{Type: TypeDrawer, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
 	if contents < end {
 		n.ContentsBegin, n.ContentsEnd = contents, end
-		n.Children = p.elements(contents, end, false)
+		n.Children = p.elements(contents, end, modeNone)
 	}
 	return p.finish(n, p.lineEnd(end), limit)
 }
@@ -235,6 +263,14 @@ func (p *parser) propertyDrawer(pos, limit int) *Node {
 		n.ContentsBegin, n.ContentsEnd = contents, line
 	}
 	return p.finish(n, p.lineEnd(line), limit)
+}
+
+func (p *parser) planning(pos, limit int) *Node {
+	if !planningRe.MatchString(p.line(pos)) {
+		return nil
+	}
+	n := &Node{Type: TypePlanning, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
+	return p.finish(n, p.lineEnd(pos), limit)
 }
 
 func (p *parser) keyword(pos, limit int) *Node {
