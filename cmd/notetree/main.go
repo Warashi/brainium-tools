@@ -28,6 +28,7 @@ import (
 
 	"github.com/Warashi/brainium-tools/internal/notesearch/evidence"
 	"github.com/Warashi/brainium-tools/internal/notesearch/outline"
+	"github.com/Warashi/brainium-tools/internal/org"
 	"github.com/Warashi/brainium-tools/internal/repo"
 )
 
@@ -201,17 +202,7 @@ func fixedDepth(name, source string, depth int) note {
 
 // filetags は #+filetags: の :a:b: を語の並びにする。
 func filetags(source string) []string {
-	for _, line := range strings.Split(source, "\n") {
-		// ファイルレベルのキーワードは最初の見出しより前にしか無い
-		if strings.HasPrefix(line, "*") {
-			break
-		}
-		key, value, ok := strings.Cut(strings.TrimSpace(line), ":")
-		if ok && strings.EqualFold(key, "#+filetags") {
-			return strings.FieldsFunc(value, func(r rune) bool { return r == ':' || r == ' ' || r == '\t' })
-		}
-	}
-	return nil
+	return org.FileTags(org.Parse(source))
 }
 
 // part は出力から削れる要素。

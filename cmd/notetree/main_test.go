@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -228,5 +229,12 @@ func TestInvalidFlags(t *testing.T) {
 		if err := execute(args, root, new(bytes.Buffer)); err == nil {
 			t.Errorf("execute(%q): want error", args)
 		}
+	}
+}
+
+func TestFiletagsFollowsOrg(t *testing.T) {
+	source := "#+title: t\n#+begin_src org\n#+filetags: :block:\n#+end_src\n* 見出し\n#+filetags: :a:b:\n"
+	if got, want := filetags(source), []string{"a", "b"}; !slices.Equal(got, want) {
+		t.Errorf("filetags = %q, want %q", got, want)
 	}
 }
