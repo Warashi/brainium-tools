@@ -75,3 +75,12 @@ $ go test ./...
 $ nix flake check
 $ nix fmt
 ```
+
+`internal/org` の parser は、Emacs の org-element と木が一致するかを差分
+テストで確かめる。`emacs` が PATH に無ければ `go test` では飛ばし、
+`nix flake check` の `org-element-diff` が必ず走らせる。手元の org ファ
+イル群と比べるときは `ORG_DIFF_CORPUS=<dir>` を渡す。
+
+```console
+$ nix shell nixpkgs#emacs-nox -c env ORG_DIFF_CORPUS=<dir> go test ./internal/org
+```

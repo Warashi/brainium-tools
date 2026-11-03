@@ -72,6 +72,19 @@
       checks = forAllSystems (pkgs: {
         # buildGoLatestModule の checkPhase が go test ./... を実行する
         inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) brainium-tools;
+
+        # org の parser を Emacs の org-element と比べる。Emacs の閉包が重い
+        # ので、通常のパッケージのビルドには入れずに別の check にする
+        org-element-diff =
+          self.packages.${pkgs.stdenv.hostPlatform.system}.brainium-tools.overrideAttrs
+            (old: {
+              pname = "org-element-diff";
+              nativeCheckInputs = (old.nativeCheckInputs or [ ]) ++ [ pkgs.emacs-nox ];
+              env = (old.env or { }) // {
+                ORG_DIFF_REQUIRE = "1";
+              };
+              checkFlags = [ "-run=^TestParseMatchesOrgElement$" ];
+            });
       });
 
       formatter = forAllSystems (
