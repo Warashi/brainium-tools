@@ -25,6 +25,8 @@ const (
 	TypeComment        Type = "comment"
 	TypeFixedWidth     Type = "fixed-width"
 	TypeHorizontalRule Type = "horizontal-rule"
+	TypeTable          Type = "table"
+	TypeTableRow       Type = "table-row"
 
 	TypeExampleBlock Type = "example-block"
 	TypeSrcBlock     Type = "src-block"
@@ -205,6 +207,9 @@ func (p *parser) element(pos, limit int) *Node {
 	if n := p.singleLine(TypeHorizontalRule, horizontalRuleRe, pos, limit); n != nil {
 		return n
 	}
+	if n := p.table(pos, limit); n != nil {
+		return n
+	}
 	return p.paragraph(pos, limit)
 }
 
@@ -213,7 +218,7 @@ func (p *parser) element(pos, limit int) *Node {
 func (p *parser) startsElement(pos, limit int) bool {
 	line := p.line(pos)
 	return commentRe.MatchString(line) || fixedWidthRe.MatchString(line) ||
-		keywordRe.MatchString(line) || horizontalRuleRe.MatchString(line) ||
+		keywordRe.MatchString(line) || horizontalRuleRe.MatchString(line) || tableRowRe.MatchString(line) ||
 		p.drawer(pos, limit) != nil || p.block(pos, limit) != nil
 }
 
@@ -234,6 +239,8 @@ var (
 	commentRe        = regexp.MustCompile(`^[ \t]*#(?: |$)`)
 	fixedWidthRe     = regexp.MustCompile(`^[ \t]*:(?: |$)`)
 	horizontalRuleRe = regexp.MustCompile(`^[ \t]*-{5,}[ \t]*$`)
+	tableRowRe       = regexp.MustCompile(`^[ \t]*\|`)
+	tableRuleRe      = regexp.MustCompile(`^[ \t]*\|-`)
 	blockBeginRe     = regexp.MustCompile(`(?i)^[ \t]*#\+BEGIN_(\S+)`)
 )
 
@@ -363,6 +370,32 @@ func (p *parser) singleLine(t Type, re *regexp.Regexp, pos, limit int) *Node {
 	}
 	n := &Node{Type: t, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
 	return p.finish(n, p.lineEnd(pos), limit)
+}
+
+// table は | で始まる連続した行を表にする。table.el の表は扱わない。
+func (p *parser) table(pos, limit int) *Node {
+	var rows []*Node
+	end := pos
+	for ; end < limit && tableRowRe.MatchString(p.line(end)); end = p.lineEnd(end) {
+		rows = append(rows, p.tableRow(end))
+	}
+	if end == pos {
+		return nil
+	}
+	n := &Node{Type: TypeTable, Begin: pos, ContentsBegin: pos, ContentsEnd: end, Children: rows}
+	return p.finish(n, end, limit)
+}
+
+// tableRow は 1 行を表の行にする。中身は最初の | の後から、行末の空白
+// の前まで。罫線の行は中身を持たない。
+func (p *parser) tableRow(pos int) *Node {
+	n := &Node{Type: TypeTableRow, Begin: pos, End: p.lineEnd(pos), ContentsBegin: -1, ContentsEnd: -1}
+	line := p.line(pos)
+	if !tableRuleRe.MatchString(line) {
+		n.ContentsBegin = pos + strings.IndexByte(line, '|') + 1
+		n.ContentsEnd = pos + len(strings.TrimRight(line, " \t"))
+	}
+	return n
 }
 
 func (p *parser) paragraph(begin, limit int) *Node {
