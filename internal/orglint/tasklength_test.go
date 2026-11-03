@@ -37,6 +37,13 @@ func TestTaskLength(t *testing.T) {
 		body := tasksHeader + taskOf("** TODO a", half) + taskOf("*** 詳細", maxTaskLines-half+1)
 		assertProblem(t, run(t, map[string]string{"tasks.org": body}), "tasks.org", "行")
 	})
+	t.Run("ブロックの中の行頭の ** も org と同じく task の見出しとして数える", func(t *testing.T) {
+		body := tasksHeader + "** TODO a\n#+begin_example\n" + taskOf("** 例", maxTaskLines+1) + "#+end_example\n"
+		got := run(t, map[string]string{"tasks.org": body})
+		if len(got) != 1 || got[0].Line != 8 {
+			t.Fatalf("want 1 problem at line 8, got %v", got)
+		}
+	})
 	t.Run("tasks.org 以外は対象にしない", func(t *testing.T) {
 		body := validNote + taskOf("** 長い節", maxTaskLines+1)
 		for _, p := range run(t, map[string]string{"notes/foo.org": body}) {

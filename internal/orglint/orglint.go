@@ -64,7 +64,6 @@ const verbatimPat = `=[^=\s](?:[^=]*[^=\s])?=|~[^~\s](?:[^~]*[^~\s])?~`
 var (
 	idPropRe      = regexp.MustCompile(`(?i)^\s*:ID:\s*(\S+)\s*$`)
 	headingRe     = regexp.MustCompile(`^\*+ `)
-	topHeadingRe  = regexp.MustCompile(`^\* `)
 	idLinkRe      = regexp.MustCompile(`\[\[id:([^\]]+)\]`)
 	slugRe        = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.org$`)
 	journalRe     = regexp.MustCompile(`^journal/(\d{4})/((\d{4})-\d{2}-\d{2})\.org$`)
@@ -393,6 +392,16 @@ func headlineProps(h *org.Node) (hasID, hasCaptured bool) {
 // lineAt は source のバイト位置 offset を含む行の 1 始まりの行番号を返す。
 func (f orgFile) lineAt(offset int) int {
 	return strings.Count(f.src[:offset], "\n") + 1
+}
+
+// lineCount は行頭から始まる [begin, end) が占める行数を返す。end が
+// 改行で終わらないファイル末尾なら、最後の行も数える。
+func (f orgFile) lineCount(begin, end int) int {
+	n := strings.Count(f.src[begin:end], "\n")
+	if end == len(f.src) && end > begin && !strings.HasSuffix(f.src, "\n") {
+		n++
+	}
+	return n
 }
 
 // checkFormat は本文の段落が fillColumn での折り返し結果と一致しない

@@ -2,7 +2,8 @@ package orglint
 
 import (
 	"fmt"
-	"regexp"
+
+	"github.com/Warashi/brainium-tools/internal/org"
 )
 
 // maxTaskLines は tasks.org の 1 task(見出し行と下位見出しを含む)に
@@ -11,43 +12,32 @@ import (
 // ないのは、それが追記を続ける抜け道になるため。
 const maxTaskLines = 40
 
-var taskHeadingRe = regexp.MustCompile(`^\*\* `)
-
-// checkTaskLength は tasks.org の ** 見出しごとに、次の * / ** 見出し
-// の直前までの行数が maxTaskLines を超えるものを報告する。
+// checkTaskLength は tasks.org の ** 見出しごとに、下位見出しを含む
+// 見出しの範囲の行数が maxTaskLines を超えるものを報告する。
 func checkTaskLength(f orgFile) []Problem {
 	if f.path != "tasks.org" {
 		return nil
 	}
 	var problems []Problem
-	start := -1
-	flush := func(end int) {
-		if start >= 0 && end-start > maxTaskLines {
-			problems = append(problems, Problem{
-				Path:    f.path,
-				Line:    start + 1,
-				Message: fmt.Sprintf("task が %d 行あり、上限の %d 行を超える。経緯は journal、知識は note へ移す", end-start, maxTaskLines),
-			})
-		}
-		start = -1
-	}
-	for i, line := range f.lines {
-		if f.kinds[i] == kindBlock {
-			continue
-		}
-		switch {
-		case topHeadingRe.MatchString(line):
-			flush(i)
-		case taskHeadingRe.MatchString(line):
-			flush(i)
-			start = i
+	var walk func(n *org.Node)
+	walk = func(n *org.Node) {
+		for _, c := range n.Children {
+			if c.Type != org.TypeHeadline {
+				continue
+			}
+			if c.Level != 2 {
+				walk(c)
+				continue
+			}
+			if lines := f.lineCount(c.Begin, c.End); lines > maxTaskLines {
+				problems = append(problems, Problem{
+					Path:    f.path,
+					Line:    f.lineAt(c.Begin),
+					Message: fmt.Sprintf("task が %d 行あり、上限の %d 行を超える。経緯は journal、知識は note へ移す", lines, maxTaskLines),
+				})
+			}
 		}
 	}
-	end := len(f.lines)
-	if end > 0 && f.lines[end-1] == "" {
-		// 末尾の改行で strings.Split が作る空要素は行ではない。
-		end--
-	}
-	flush(end)
+	walk(f.root)
 	return problems
 }
