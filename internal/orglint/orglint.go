@@ -162,11 +162,13 @@ func Run(fsys fs.FS, targets ...string) ([]Problem, error) {
 type lineKind int
 
 const (
-	kindOther  lineKind = iota // 空行・見出し・計画行・キーワード行・表・コメント
-	kindBody                   // 折り返しの対象になる段落の行
-	kindDrawer                 // ドロワーの内側と境界行
-	kindBlock                  // ブロックの内側と境界行
-	kindFixed                  // 固定幅行(: で始まる行)
+	kindOther   lineKind = iota // 空行・見出し・計画行・表
+	kindBody                    // 折り返しの対象になる段落の行
+	kindDrawer                  // ドロワーの内側と境界行
+	kindBlock                   // ブロックの内側と境界行
+	kindFixed                   // 固定幅行(: で始まる行)
+	kindKeyword                 // #+ で始まるキーワード行
+	kindComment                 // コメント行
 )
 
 // layout は行の種類と、段落の行が属する段落。
@@ -212,6 +214,10 @@ func lineLayout(src string, root *org.Node, lines []string) layout {
 				mark(c, kindBlock)
 			case org.TypeFixedWidth:
 				mark(c, kindFixed)
+			case org.TypeKeyword:
+				mark(c, kindKeyword)
+			case org.TypeComment:
+				mark(c, kindComment)
 			case org.TypeParagraph:
 				// 閉じていないドロワーは org では段落になるが、折り返すと
 				// :PROPERTIES: などの行がつながって壊れる
@@ -440,15 +446,13 @@ func checkFormat(f orgFile) []Problem {
 // checkEmphasis は org がコード表記として組み直さない =…= と ~…~ を
 // 報告する。前後に置ける文字を外れた記法は色も等幅も付かず、中の
 // リンクも組み立てられないまま素の文字として表示される。ブロックと
-// ドロワーと固定幅行の中、および #+ 行とコメントは org 自身が組み直さ
-// ないので対象にしない。
+// ドロワーと固定幅行の中、およびキーワード行とコメントは org 自身が組み
+// 直さないので対象にしない。
 func checkEmphasis(f orgFile) []Problem {
 	var problems []Problem
 	for i, line := range f.lines {
-		if k := f.layout.kinds[i]; k == kindBlock || k == kindDrawer || k == kindFixed {
-			continue
-		}
-		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+		switch f.layout.kinds[i] {
+		case kindBlock, kindDrawer, kindFixed, kindKeyword, kindComment:
 			continue
 		}
 		_, dangling := emphasisSpans(line)

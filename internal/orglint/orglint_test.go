@@ -647,6 +647,12 @@ func TestCheckEmphasis(t *testing.T) {
 		}
 	})
 
+	t.Run("# の直後が空白でない本文の行は報告する", func(t *testing.T) {
+		if got := problems(t, "#7456 の件は=aaa=b のようになる\n"); len(got) != 1 {
+			t.Errorf("want 1 problem, got %v", got)
+		}
+	})
+
 	t.Run("固定幅行は報告しない", func(t *testing.T) {
 		if got := problems(t, "* 見出し\n: $ x=aaa=b\n:\n"); len(got) != 0 {
 			t.Errorf("want no problems, got %v", got)
