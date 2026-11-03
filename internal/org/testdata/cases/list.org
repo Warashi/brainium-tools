@@ -1,0 +1,26 @@
+foo
+- a
+  b
+  - c
+
+  - d
+    #+begin_example
+- e
+    #+end_example
+
+
+- f
+1. [X] g
+2) h :: i
+   :LOGBOOK:
+- j
+   :END:
+- k :: l
+-
++ [x]
+  * m
+- 
+  n
+  - o
+ p
+- q

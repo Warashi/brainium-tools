@@ -49,7 +49,7 @@ type Node struct {
 
 // Parse は source 全体を解析して org-data の節点を返す。
 func Parse(source string) *Node {
-	p := parser{src: source}
+	p := parser{src: source, listItems: map[int]listItem{}}
 	root := &Node{Type: TypeOrgData, Begin: 0, End: len(source), ContentsBegin: 0, ContentsEnd: len(source)}
 	root.Children = p.headlineContents(0, len(source), false)
 	return root
@@ -57,6 +57,8 @@ func Parse(source string) *Node {
 
 type parser struct {
 	src string
+	// listItems は解析済みのリストの item を開始位置で引く。
+	listItems map[int]listItem
 }
 
 // lineEnd は pos を含む行の、改行を含めた終わりを返す。
@@ -168,8 +170,16 @@ func (p *parser) elements(begin, end int, m mode) []*Node {
 	var nodes []*Node
 	_, pos := p.skipBlank(begin, end)
 	for pos < end {
+		var n *Node
+		if pos > 0 && p.src[pos-1] != '\n' {
+			// item の中身の先頭のように行の途中から始まる要素は、org
+			// では常に段落になる
+			n = p.paragraph(pos, end)
+		}
 		// org はコメントを計画行と PROPERTIES ドロワーより先に判定する
-		n := p.lines(TypeComment, commentRe, pos, end)
+		if n == nil {
+			n = p.lines(TypeComment, commentRe, pos, end)
+		}
 		if n == nil && m == modePlanning {
 			n = p.singleLine(TypePlanning, planningRe, pos, end)
 		}
@@ -210,6 +220,9 @@ func (p *parser) element(pos, limit int) *Node {
 	if n := p.table(pos, limit); n != nil {
 		return n
 	}
+	if n := p.plainList(pos, limit); n != nil {
+		return n
+	}
 	return p.paragraph(pos, limit)
 }
 
@@ -219,6 +232,7 @@ func (p *parser) startsElement(pos, limit int) bool {
 	line := p.line(pos)
 	return commentRe.MatchString(line) || fixedWidthRe.MatchString(line) ||
 		keywordRe.MatchString(line) || horizontalRuleRe.MatchString(line) || tableRowRe.MatchString(line) ||
+		listSeparateRe.MatchString(line) ||
 		p.drawer(pos, limit) != nil || p.block(pos, limit) != nil
 }
 
