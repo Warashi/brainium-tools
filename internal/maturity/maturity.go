@@ -33,7 +33,7 @@ var dateRe = regexp.MustCompile(`^[\[<](\d{4}-\d{2}-\d{2})(?: [^\]>\d][^\]>]*?)?
 // ドロワーはノート全体の成熟度ではないので見ない。
 func Parse(content string) Props {
 	var p Props
-	drawer := fileProperties(org.Parse(content))
+	drawer := org.FileProperties(org.Parse(content))
 	if drawer == nil {
 		return p
 	}
@@ -49,20 +49,6 @@ func Parse(content string) Props {
 		}
 	}
 	return p
-}
-
-// fileProperties は最初の見出しより前の section にある PROPERTIES ドロ
-// ワーを返す。無ければ nil。
-func fileProperties(root *org.Node) *org.Node {
-	if len(root.Children) == 0 || root.Children[0].Type != org.TypeSection {
-		return nil
-	}
-	for _, n := range root.Children[0].Children {
-		if n.Type == org.TypePropertyDrawer {
-			return n
-		}
-	}
-	return nil
 }
 
 // Problem は成熟度の規約違反 1 件。Line が 0 の違反は行を特定しない。
