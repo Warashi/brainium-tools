@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Warashi/brainium-tools/internal/org"
 )
 
 // Property はファイルレベルの PROPERTIES ドロワーにある値 1 つ。Line は
@@ -24,33 +26,20 @@ type Props struct {
 	StaleAfter Property
 }
 
-var (
-	propRe = regexp.MustCompile(`^\s*:([A-Za-z_]+):\s*(.*?)\s*$`)
-	// dateRe は org のタイムスタンプ。曜日と時刻は省略を許す。
-	dateRe = regexp.MustCompile(`^[\[<](\d{4}-\d{2}-\d{2})(?: [^\]>\d][^\]>]*?)?(?: \d{1,2}:\d{2})?[\]>]$`)
-)
+// dateRe は org のタイムスタンプ。曜日と時刻は省略を許す。
+var dateRe = regexp.MustCompile(`^[\[<](\d{4}-\d{2}-\d{2})(?: [^\]>\d][^\]>]*?)?(?: \d{1,2}:\d{2})?[\]>]$`)
 
 // Parse はファイル先頭の PROPERTIES ドロワーだけを読む。見出しに付いた
 // ドロワーはノート全体の成熟度ではないので見ない。
 func Parse(content string) Props {
 	var p Props
-	lines := strings.Split(content, "\n")
-	first := 0
-	for first < len(lines) && strings.TrimSpace(lines[first]) == "" {
-		first++
-	}
-	if first >= len(lines) || !strings.EqualFold(strings.TrimSpace(lines[first]), ":PROPERTIES:") {
+	drawer := fileProperties(org.Parse(content))
+	if drawer == nil {
 		return p
 	}
-	for i := first + 1; i < len(lines); i++ {
-		m := propRe.FindStringSubmatch(lines[i])
-		if m == nil {
-			continue
-		}
-		prop := Property{Value: m[2], Line: i + 1}
-		switch strings.ToUpper(m[1]) {
-		case "END":
-			return p
+	for _, n := range drawer.Children {
+		prop := Property{Value: n.Value, Line: strings.Count(content[:n.Begin], "\n") + 1}
+		switch strings.ToUpper(n.Key) {
 		case "STATUS":
 			p.Status = prop
 		case "VERIFIED":
@@ -60,6 +49,20 @@ func Parse(content string) Props {
 		}
 	}
 	return p
+}
+
+// fileProperties は最初の見出しより前の section にある PROPERTIES ドロ
+// ワーを返す。無ければ nil。
+func fileProperties(root *org.Node) *org.Node {
+	if len(root.Children) == 0 || root.Children[0].Type != org.TypeSection {
+		return nil
+	}
+	for _, n := range root.Children[0].Children {
+		if n.Type == org.TypePropertyDrawer {
+			return n
+		}
+	}
+	return nil
 }
 
 // Problem は成熟度の規約違反 1 件。Line が 0 の違反は行を特定しない。

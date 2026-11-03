@@ -29,6 +29,30 @@ func TestParseIgnoresHeadingProperties(t *testing.T) {
 	}
 }
 
+// TestParseFollowsOrgElement は、ファイル先頭の PROPERTIES ドロワーを
+// org-element と同じ条件で認めることを確かめる。
+func TestParseFollowsOrgElement(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    Property
+	}{
+		{"コメントの後のドロワーを読む", "# comment\n:PROPERTIES:\n:STATUS: draft\n:END:\n", Property{"draft", 3}},
+		{"先頭の空行の後のドロワーを読む", "\n:PROPERTIES:\n:STATUS: draft\n:END:\n", Property{"draft", 3}},
+		{"小文字のキーも読む", ":PROPERTIES:\n:status: draft\n:END:\n", Property{"draft", 2}},
+		{"閉じていないドロワーは読まない", ":PROPERTIES:\n:ID: x\n#+title: t\n\n* h\n:PROPERTIES:\n:STATUS: draft\n:END:\n", Property{}},
+		{"プロパティでない行を含むドロワーは読まない", ":PROPERTIES:\n:STATUS: draft\nfoo\n:END:\n", Property{}},
+		{"段落の後のドロワーは読まない", "foo\n\n:PROPERTIES:\n:STATUS: draft\n:END:\n", Property{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Parse(tt.content).Status; got != tt.want {
+				t.Errorf("status = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCheck(t *testing.T) {
 	tests := []struct {
 		name  string
