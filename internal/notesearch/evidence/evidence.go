@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Warashi/brainium-tools/internal/notesearch/tokenize"
+	"github.com/Warashi/brainium-tools/internal/org"
 )
 
 const (
@@ -79,7 +80,7 @@ func Extract(content, query string) Document {
 	}
 
 	lines := splitLines(content)
-	doc := Document{Metadata: extractMetadata(lines)}
+	doc := Document{Metadata: extractMetadata(content)}
 	parseStructure(lines)
 	passages := makePassages(lines)
 	if len(passages) == 0 {
@@ -166,7 +167,7 @@ func Extract(content, query string) Document {
 // ParseMetadata returns only the file-level metadata, without tokenizing the
 // body as Extract does.
 func ParseMetadata(content string) Metadata {
-	return extractMetadata(splitLines(content))
+	return extractMetadata(content)
 }
 
 func splitLines(content string) []sourceLine {
@@ -190,76 +191,36 @@ func splitLines(content string) []sourceLine {
 	return lines
 }
 
-func extractMetadata(lines []sourceLine) Metadata {
-	metadata := leadingProperties(lines)
-	var blockType string
-	inDrawer := false
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line.text)
-		if _, _, ok := heading(line.text); ok {
-			break
-		}
-		if blockType != "" {
-			if endType, ok := blockEndType(trimmed); ok && endType == blockType {
-				blockType = ""
+// extractMetadata reads the file-level property drawer and the first TITLE
+// keyword of the section before the first headline, as org-element parses them.
+// Keywords nested in drawers are not file metadata.
+func extractMetadata(content string) Metadata {
+	var metadata Metadata
+	root := org.Parse(content)
+	if drawer := org.FileProperties(root); drawer != nil {
+		for _, n := range drawer.Children {
+			switch strings.ToUpper(n.Key) {
+			case "ID":
+				metadata.ID = n.Value
+			case "STATUS":
+				metadata.Status = n.Value
+			case "VERIFIED":
+				metadata.Verified = n.Value
+			case "STALE_AFTER":
+				metadata.StaleAfter = n.Value
 			}
-			continue
 		}
-		if beginType, ok := blockBeginType(trimmed); ok {
-			blockType = beginType
-			continue
-		}
-		if inDrawer {
-			if strings.EqualFold(trimmed, ":END:") {
-				inDrawer = false
-			}
-			continue
-		}
-		if isDrawerBegin(trimmed) {
-			inDrawer = true
-			continue
-		}
-		if key, value, ok := keyword(trimmed); ok && strings.EqualFold(key, "title") {
-			metadata.Title = value
+	}
+	if len(root.Children) == 0 || root.Children[0].Type != org.TypeSection {
+		return metadata
+	}
+	for _, n := range root.Children[0].Children {
+		if n.Type == org.TypeKeyword && n.Key == "TITLE" {
+			metadata.Title = n.Value
 			break
 		}
 	}
 	return metadata
-}
-
-func leadingProperties(lines []sourceLine) Metadata {
-	var pending Metadata
-	first := 0
-	for first < len(lines) && strings.TrimSpace(lines[first].text) == "" {
-		first++
-	}
-	if first >= len(lines) || !strings.EqualFold(strings.TrimSpace(lines[first].text), ":PROPERTIES:") {
-		return Metadata{}
-	}
-	for i := first + 1; i < len(lines); i++ {
-		text := strings.TrimSpace(lines[i].text)
-		if strings.EqualFold(text, ":END:") {
-			return pending
-		}
-		if _, _, ok := heading(lines[i].text); ok {
-			return Metadata{}
-		}
-		key, value, ok := property(text)
-		if !ok {
-			continue
-		}
-		switch strings.ToUpper(key) {
-		case "ID":
-			pending.ID = value
-		case "STATUS":
-			pending.Status = value
-		case "VERIFIED":
-			pending.Verified = value
-		case "STALE_AFTER":
-			pending.StaleAfter = value
-		}
-	}
-	return Metadata{}
 }
 
 func parseStructure(lines []sourceLine) {
@@ -443,34 +404,6 @@ func uniqueTokens(text string) map[string]struct{} {
 		out[token] = struct{}{}
 	}
 	return out
-}
-
-func property(line string) (key, value string, ok bool) {
-	if len(line) < 3 || line[0] != ':' {
-		return "", "", false
-	}
-	end := strings.IndexByte(line[1:], ':')
-	if end < 0 {
-		return "", "", false
-	}
-	end++
-	key = strings.TrimSpace(line[1:end])
-	if key == "" {
-		return "", "", false
-	}
-	return key, strings.TrimSpace(line[end+1:]), true
-}
-
-func keyword(line string) (key, value string, ok bool) {
-	if !strings.HasPrefix(line, "#+") {
-		return "", "", false
-	}
-	end := strings.IndexByte(line[2:], ':')
-	if end < 0 {
-		return "", "", false
-	}
-	end += 2
-	return strings.TrimSpace(line[2:end]), strings.TrimSpace(line[end+1:]), true
 }
 
 func heading(line string) (level int, title string, ok bool) {

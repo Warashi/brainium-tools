@@ -274,7 +274,7 @@ func TestMalformedLeadingDrawerDoesNotConsumeHeadingProperties(t *testing.T) {
 	content := ":PROPERTIES:\n:ID: malformed-file\n#+title: Not valid metadata\n* Node\n" +
 		":PROPERTIES:\n:ID: heading-id\n:STATUS: stable\n:END:\nbody\n"
 	got := evidence.Extract(content, "body")
-	if got.Metadata != (evidence.Metadata{}) {
+	if got.Metadata != (evidence.Metadata{Title: "Not valid metadata"}) {
 		t.Fatalf("malformed metadata leaked: %#v", got.Metadata)
 	}
 	if len(got.Snippets) != 1 || got.Snippets[0].Text != "body" ||
@@ -291,6 +291,25 @@ func TestLongLineAndOneGramNoise(t *testing.T) {
 	got := evidence.Extract(content, "根拠抽出")
 	if len(got.Snippets) == 0 || got.Snippets[0].StartLine != 6 {
 		t.Fatalf("substantial match did not win: %#v", got.Snippets)
+	}
+}
+
+func TestMetadataFollowsOrgElement(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, content string
+		want          evidence.Metadata
+	}{
+		{"drawer after a comment", "# comment\n:PROPERTIES:\n:ID: x\n:STATUS: draft\n:END:\n#+TITLE: 題\n",
+			evidence.Metadata{ID: "x", Status: "draft", Title: "題"}},
+		{"title after an unclosed drawer", ":PROPERTIES:\n:ID: x\n#+title: 題\n* Node\n",
+			evidence.Metadata{Title: "題"}},
+		{"title inside a drawer", ":NOTE:\n#+title: 中\n:END:\n#+title: 外\n",
+			evidence.Metadata{Title: "外"}},
+	} {
+		if got := evidence.ParseMetadata(tc.content); got != tc.want {
+			t.Errorf("%s: metadata = %+v, want %+v", tc.name, got, tc.want)
+		}
 	}
 }
 
