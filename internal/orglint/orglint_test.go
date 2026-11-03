@@ -378,6 +378,13 @@ func TestParseOrg(t *testing.T) {
 		}
 	})
 
+	t.Run("PROPERTIES 以外のドロワーの :ID: は ID とみなさない", func(t *testing.T) {
+		f := parseOrg("a.org", []byte("* 見出し\n:LOGBOOK:\n:ID: logbook-id\n:END:\n"))
+		if len(f.ids) != 0 {
+			t.Errorf("ids = %v, want empty", f.ids)
+		}
+	})
+
 	t.Run("見出しより後の #+title: はファイルのタイトルとみなさない", func(t *testing.T) {
 		f := parseOrg("a.org", []byte("* 見出し\n#+title: 題\n"))
 		if f.title != "" {

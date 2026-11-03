@@ -62,7 +62,6 @@ type orgFile struct {
 const verbatimPat = `=[^=\s](?:[^=]*[^=\s])?=|~[^~\s](?:[^~]*[^~\s])?~`
 
 var (
-	idPropRe      = regexp.MustCompile(`(?i)^\s*:ID:\s*(\S+)\s*$`)
 	headingRe     = regexp.MustCompile(`^\*+ `)
 	idLinkRe      = regexp.MustCompile(`\[\[id:([^\]]+)\]`)
 	slugRe        = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.org$`)
@@ -240,9 +239,9 @@ func isBodyLine(line string) bool {
 	}
 }
 
-// parseOrg はファイルレベルの ID とタイトルを org の parser で読み、
-// 行単位の走査で ID と id: リンクを抜き出し、整形の検査に使う行と行種を
-// 持たせる。インラインのコード表記はリンクを拾う前に取り除く。
+// parseOrg は ID とファイルレベルのタイトルを org の parser で読み、
+// 行単位の走査で id: リンクを抜き出し、整形の検査に使う行と行種を持た
+// せる。インラインのコード表記はリンクを拾う前に取り除く。
 func parseOrg(p string, data []byte) orgFile {
 	lines := strings.Split(string(data), "\n")
 	kinds := scanLines(lines)
@@ -250,21 +249,12 @@ func parseOrg(p string, data []byte) orgFile {
 	root := org.Parse(src)
 	f := orgFile{path: p, src: src, root: root, lines: lines, kinds: kinds, title: org.FileTitle(root)}
 	if drawer := org.FileProperties(root); drawer != nil {
-		for _, n := range drawer.Children {
-			if strings.EqualFold(n.Key, "ID") {
-				f.fileID = n.Value
-				break
-			}
-		}
+		f.fileID = propertyID(drawer)
 	}
+	f.ids = collectIDs(root, nil)
 	for i, line := range lines {
 		switch kinds[i] {
-		case kindBlock, kindFixed:
-			continue
-		case kindDrawer:
-			if m := idPropRe.FindStringSubmatch(line); m != nil {
-				f.ids = append(f.ids, m[1])
-			}
+		case kindBlock, kindFixed, kindDrawer:
 			continue
 		}
 
@@ -273,6 +263,33 @@ func parseOrg(p string, data []byte) orgFile {
 		}
 	}
 	return f
+}
+
+// collectIDs は n 以下の PROPERTIES ドロワーにある :ID: の値を ids に
+// 足して返す。org-node が索引に使う org-mem も、PROPERTIES ドロワーの
+// :ID: だけを拾う。
+func collectIDs(n *org.Node, ids []string) []string {
+	if n.Type == org.TypePropertyDrawer {
+		if id := propertyID(n); id != "" {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	for _, c := range n.Children {
+		ids = collectIDs(c, ids)
+	}
+	return ids
+}
+
+// propertyID は PROPERTIES ドロワーの最初の :ID: の値を返す。無ければ
+// 空文字列。
+func propertyID(drawer *org.Node) string {
+	for _, n := range drawer.Children {
+		if strings.EqualFold(n.Key, "ID") {
+			return n.Value
+		}
+	}
+	return ""
 }
 
 // stripVerbatim はコード表記として組まれる範囲を空白 1 個に置き換える。
