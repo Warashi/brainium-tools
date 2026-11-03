@@ -27,7 +27,8 @@ type diffNode struct {
 // TestParseMatchesOrgElement は Parse の木が Emacs の org-element と一致
 // することを確かめる。Emacs が無ければ飛ばすが、ORG_DIFF_REQUIRE=1 なら
 // 失敗にして、正解を出せないまま通るのを防ぐ。ORG_DIFF_CORPUS にディレ
-// クトリを渡すと、その配下の org ファイルも比べる。
+// クトリを渡すと、その配下の org ファイルも比べる。testdata/objects は
+// object まで、それ以外は element の粒度で比べる。
 func TestParseMatchesOrgElement(t *testing.T) {
 	emacs, err := exec.LookPath("emacs")
 	if err != nil {
@@ -36,12 +37,17 @@ func TestParseMatchesOrgElement(t *testing.T) {
 		}
 		t.Skip("emacs が PATH に無い")
 	}
-	files := orgFiles(t, "testdata/cases")
+	elements := orgFiles(t, "testdata/cases")
 	if corpus := os.Getenv("ORG_DIFF_CORPUS"); corpus != "" {
-		files = append(files, orgFiles(t, corpus)...)
+		elements = append(elements, orgFiles(t, corpus)...)
 	}
+	compareWithOrgElement(t, emacs, "element", elements)
+	compareWithOrgElement(t, emacs, "object", orgFiles(t, "testdata/objects"))
+}
 
-	want := runOrgElement(t, emacs, files)
+func compareWithOrgElement(t *testing.T, emacs, granularity string, files []string) {
+	t.Helper()
+	want := runOrgElement(t, emacs, granularity, files)
 	for _, file := range files {
 		t.Run(file, func(t *testing.T) {
 			data, err := os.ReadFile(file)
@@ -79,9 +85,9 @@ func orgFiles(t *testing.T, dir string) []string {
 	return files
 }
 
-func runOrgElement(t *testing.T, emacs string, files []string) map[string]diffNode {
+func runOrgElement(t *testing.T, emacs, granularity string, files []string) map[string]diffNode {
 	t.Helper()
-	args := append([]string{"-Q", "--batch", "-l", "testdata/org-element.el"}, files...)
+	args := append([]string{"-Q", "--batch", "-l", "testdata/org-element.el", granularity}, files...)
 	cmd := exec.Command(emacs, args...)
 	// org-persist などが HOME に書こうとするので、書ける場所に向ける
 	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
