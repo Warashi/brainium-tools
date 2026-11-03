@@ -3,7 +3,10 @@
 // める。
 package org
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 // Type は節点の種類。org-element の型名と同じ文字列を使う。
 type Type string
@@ -13,6 +16,11 @@ const (
 	TypeHeadline  Type = "headline"
 	TypeSection   Type = "section"
 	TypeParagraph Type = "paragraph"
+
+	TypeDrawer         Type = "drawer"
+	TypePropertyDrawer Type = "property-drawer"
+	TypeNodeProperty   Type = "node-property"
+	TypeKeyword        Type = "keyword"
 )
 
 // Node は木の節点 1 つ。位置は source のバイト位置で、End は直後の空行
@@ -119,27 +127,129 @@ func (p *parser) headline(begin, end int) *Node {
 
 func (p *parser) section(begin, end int) *Node {
 	n := &Node{Type: TypeSection, Begin: begin, End: end, ContentsBegin: begin, ContentsEnd: end}
-	n.Children = p.elements(begin, end)
+	n.Children = p.elements(begin, end, true)
 	return n
 }
 
-// elements は section の中の要素を並べる。
-func (p *parser) elements(begin, end int) []*Node {
+// elements は [begin, end) の要素を並べる。org は PROPERTIES ドロワーを
+// section の先頭でだけ認めるので、propertyDrawer でその位置かを渡す。
+func (p *parser) elements(begin, end int, propertyDrawer bool) []*Node {
 	var nodes []*Node
 	_, pos := p.skipBlank(begin, end)
 	for pos < end {
-		n := p.paragraph(pos, end)
+		var n *Node
+		if propertyDrawer {
+			n = p.propertyDrawer(pos, end)
+		}
+		if n == nil {
+			n = p.element(pos, end)
+		}
 		nodes = append(nodes, n)
 		pos = n.End
+		propertyDrawer = false
 	}
 	return nodes
 }
 
+// element は pos から始まる要素を 1 つ解析する。pos は空行ではない。
+func (p *parser) element(pos, limit int) *Node {
+	if n := p.drawer(pos, limit); n != nil {
+		return n
+	}
+	if n := p.keyword(pos, limit); n != nil {
+		return n
+	}
+	return p.paragraph(pos, limit)
+}
+
+// startsElement は pos の行が段落以外の要素を始めるかを返す。段落はそ
+// こで終わる(org-element-paragraph-separate に相当)。
+func (p *parser) startsElement(pos, limit int) bool {
+	return p.drawer(pos, limit) != nil || p.keyword(pos, limit) != nil
+}
+
+// finish は中身が contentsEnd で終わる要素に、続く空行を含めた終わりを
+// 設定する。
+func (p *parser) finish(n *Node, pos, limit int) *Node {
+	n.PostBlank, n.End = p.skipBlank(pos, limit)
+	return n
+}
+
+var (
+	drawerBeginRe  = regexp.MustCompile(`^[ \t]*:([\p{L}\p{N}\p{M}_-]+):[ \t]*$`)
+	drawerEndRe    = regexp.MustCompile(`(?i)^[ \t]*:END:[ \t]*$`)
+	propertiesRe   = regexp.MustCompile(`(?i)^[ \t]*:PROPERTIES:[ \t]*$`)
+	nodePropertyRe = regexp.MustCompile(`^[ \t]*:\S+:(?:[ \t].*)?$`)
+	keywordRe      = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
+)
+
+// drawerEnd は [pos, limit) で最初の :END: 行の位置を返す。無ければ -1。
+func (p *parser) drawerEnd(pos, limit int) int {
+	for ; pos < limit; pos = p.lineEnd(pos) {
+		if drawerEndRe.MatchString(p.line(pos)) {
+			return pos
+		}
+	}
+	return -1
+}
+
+// drawer は :NAME: から :END: までを解析する。:END: が limit までに無け
+// れば org はドロワーとみなさないので nil を返す。
+func (p *parser) drawer(pos, limit int) *Node {
+	if !drawerBeginRe.MatchString(p.line(pos)) {
+		return nil
+	}
+	contents := p.lineEnd(pos)
+	end := p.drawerEnd(contents, limit)
+	if end < 0 {
+		return nil
+	}
+	n := &Node{Type: TypeDrawer, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
+	if contents < end {
+		n.ContentsBegin, n.ContentsEnd = contents, end
+		n.Children = p.elements(contents, end, false)
+	}
+	return p.finish(n, p.lineEnd(end), limit)
+}
+
+// propertyDrawer は :PROPERTIES: から :END: までを解析する。間の行が
+// すべて :KEY: の形でなければ org はプロパティドロワーとみなさない。
+func (p *parser) propertyDrawer(pos, limit int) *Node {
+	if !propertiesRe.MatchString(p.line(pos)) {
+		return nil
+	}
+	contents := p.lineEnd(pos)
+	var props []*Node
+	line := contents
+	for ; line < limit && !drawerEndRe.MatchString(p.line(line)); line = p.lineEnd(line) {
+		if !nodePropertyRe.MatchString(p.line(line)) {
+			return nil
+		}
+		props = append(props, &Node{Type: TypeNodeProperty, Begin: line, End: p.lineEnd(line), ContentsBegin: -1, ContentsEnd: -1})
+	}
+	if line >= limit {
+		return nil
+	}
+	n := &Node{Type: TypePropertyDrawer, Begin: pos, ContentsBegin: -1, ContentsEnd: -1, Children: props}
+	if contents < line {
+		n.ContentsBegin, n.ContentsEnd = contents, line
+	}
+	return p.finish(n, p.lineEnd(line), limit)
+}
+
+func (p *parser) keyword(pos, limit int) *Node {
+	if !keywordRe.MatchString(p.line(pos)) {
+		return nil
+	}
+	n := &Node{Type: TypeKeyword, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
+	return p.finish(n, p.lineEnd(pos), limit)
+}
+
 func (p *parser) paragraph(begin, limit int) *Node {
-	pos := begin
-	for pos < limit && !p.blank(pos) {
+	pos := p.lineEnd(begin)
+	for pos < limit && !p.blank(pos) && !p.startsElement(pos, limit) {
 		pos = p.lineEnd(pos)
 	}
-	blanks, end := p.skipBlank(pos, limit)
-	return &Node{Type: TypeParagraph, Begin: begin, End: end, ContentsBegin: begin, ContentsEnd: pos, PostBlank: blanks}
+	n := &Node{Type: TypeParagraph, Begin: begin, ContentsBegin: begin, ContentsEnd: pos}
+	return p.finish(n, pos, limit)
 }
