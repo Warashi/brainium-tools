@@ -144,6 +144,32 @@ func TestFormat(t *testing.T) {
 		}
 	})
 
+	t.Run("comment ブロックの中は空行で区切った素の文章として折り返す", func(t *testing.T) {
+		a := func(n int) string { return strings.Repeat("あ", n) }
+		block := func(s string) string { return "#+begin_comment\n" + s + "#+end_comment\n" }
+		link := "[[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][行幅]]"
+		for _, c := range []struct{ name, body, want string }{
+			{"長い行", block(a(50) + "\n"), block(a(35) + "\n" + a(15) + "\n")},
+			{"空行で段落を分ける", block("あい\nうえ\n\nかき\n"), block("あいうえ\n\nかき\n")},
+			{"和文と欧文の境界は空白でつなぐ", block("あいう\norglint の\n"), block("あいう orglint の\n")},
+			{"リストもキーワード行もつなぐ", block("- あい\n#+foo: bar\nうえ\n"), block("- あい #+foo: bar うえ\n")},
+			{"リストの記号は継続行の頭に付けない", block("- " + a(50) + "\n"), block("- " + a(34) + "\n" + a(16) + "\n")},
+			{"コメントの # も継続行の頭に付けない", block("# " + a(50) + "\n"), block("# " + a(34) + "\n" + a(16) + "\n")},
+			{"1 行の段落は 1 行目の字下げに揃える", block("  " + a(50) + "\n"), block("  " + a(34) + "\n  " + a(16) + "\n")},
+			{"複数行の段落は 2 行目の字下げに揃える", block("あい\n  " + a(50) + "\n"), block("あい" + a(33) + "\n  " + a(17) + "\n")},
+			{"1 行目だけの字下げは継続行に付けない", block("  あい\n" + a(50) + "\n"), block("  あい" + a(32) + "\n" + a(18) + "\n")},
+			{"リンクの記法は幅に数えない", block(link + a(50) + "\n"), block(link + a(33) + "\n" + a(17) + "\n")},
+			{"字下げしたブロック", "  #+begin_comment\n  " + a(50) + "\n  #+end_comment\n",
+				"  #+begin_comment\n  " + a(34) + "\n  " + a(16) + "\n  #+end_comment\n"},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				if got := format(t, c.body); got != c.want {
+					t.Errorf("got:\n%s\nwant:\n%s", got, c.want)
+				}
+			})
+		}
+	})
+
 	t.Run("見出し・表・ブロック・ドロワーには触れない", func(t *testing.T) {
 		long := strings.Repeat("あ", 50)
 		body := "* " + long + "\n" +

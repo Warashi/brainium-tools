@@ -168,7 +168,7 @@ const (
 	kindBlock                   // ブロックの内側と境界行
 	kindFixed                   // 固定幅行(: で始まる行)
 	kindKeyword                 // #+ で始まるキーワード行
-	kindComment                 // コメント行
+	kindComment                 // コメント行と comment ブロックの内側・境界行
 )
 
 // layout は行の種類と、段落の行が属する段落。
@@ -183,8 +183,9 @@ type layout struct {
 }
 
 // lineLayout は org の parser の木から行の種類と段落を決める。ドロワー
-// とブロックは中の段落も折り返さない。item の中の段落の継続行は、org の
-// fill と同じく item の本文の桁(org-list-item-body-column)に揃える。
+// と comment 以外のブロックは中の段落も折り返さない。item の中の段落の
+// 継続行は、org の fill と同じく item の本文の桁
+// (org-list-item-body-column)に揃える。
 func lineLayout(src string, root *org.Node, lines []string) layout {
 	starts := make([]int, len(lines))
 	for i, off := 0, 0; i < len(lines); i++ {
@@ -210,8 +211,11 @@ func lineLayout(src string, root *org.Node, lines []string) layout {
 			switch c.Type {
 			case org.TypeDrawer, org.TypePropertyDrawer:
 				mark(c, kindDrawer)
-			case org.TypeExampleBlock, org.TypeSrcBlock, org.TypeCommentBlock, org.TypeQuoteBlock, org.TypeSpecialBlock:
+			case org.TypeExampleBlock, org.TypeSrcBlock, org.TypeQuoteBlock, org.TypeSpecialBlock:
 				mark(c, kindBlock)
+			case org.TypeCommentBlock:
+				mark(c, kindComment)
+				l.commentBlockParagraphs(lines, index(c.Begin)+1, last(c)-1)
 			case org.TypeFixedWidth:
 				mark(c, kindFixed)
 			case org.TypeKeyword:
@@ -265,6 +269,29 @@ func (l *layout) commentParagraphs(lines []string, first, last int) {
 			l.indents = append(l.indents, commentPrefixRe.FindString(lines[i]))
 		}
 		l.paras[i] = len(l.indents) - 1
+	}
+}
+
+// commentBlockParagraphs は comment ブロックの中身の行 [first, last] を
+// 空行で段落に分ける。org-fill-element は中身を org の要素として読まず
+// 素の文章として fill するので、リストやキーワード行もつながる。継続行
+// の頭は fill-context-prefix と同じく、2 行目(1 行だけなら 1 行目)の
+// 字下げに揃える。
+func (l *layout) commentBlockParagraphs(lines []string, first, last int) {
+	for i := first; i <= last; {
+		if strings.TrimSpace(lines[i]) == "" {
+			i++
+			continue
+		}
+		end := i
+		for end+1 <= last && strings.TrimSpace(lines[end+1]) != "" {
+			end++
+		}
+		for j := i; j <= end; j++ {
+			l.paras[j] = len(l.indents)
+		}
+		l.indents = append(l.indents, leadingSpace(lines[min(i+1, end)]))
+		i = end + 1
 	}
 }
 

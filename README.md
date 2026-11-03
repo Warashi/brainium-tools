@@ -46,7 +46,9 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
   行のつなぎ方は `fill-separate-heterogeneous-words-with-space` を `t` に
   した Emacs に合わせ、つなぎ目の両側が和文のときだけ詰める。コメント
   行も Emacs の `org-fill-paragraph` と同じく、`#` だけの行で区切った段
-  落ごとに、継続行の頭に 1 行目の `# ` などを付けて折り返す
+  落ごとに、継続行の頭に 1 行目の `# ` などを付けて折り返す。comment
+  ブロックの中は空行で区切った素の文章として折り返し、リストやキーワー
+  ド行もつなぐ
 - `=…=` / `~…~` のコード表記の前後の文字
 - `tasks.org` の 1 task が 40 行以内であること
 
