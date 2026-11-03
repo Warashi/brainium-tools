@@ -23,6 +23,7 @@ const (
 	TypeKeyword        Type = "keyword"
 	TypePlanning       Type = "planning"
 	TypeComment        Type = "comment"
+	TypeFixedWidth     Type = "fixed-width"
 )
 
 // Node は木の節点 1 つ。位置は source のバイト位置で、End は直後の空行
@@ -159,7 +160,7 @@ func (p *parser) elements(begin, end int, m mode) []*Node {
 	_, pos := p.skipBlank(begin, end)
 	for pos < end {
 		// org はコメントを計画行と PROPERTIES ドロワーより先に判定する
-		n := p.comment(pos, end)
+		n := p.lines(TypeComment, commentRe, pos, end)
 		if n == nil && m == modePlanning {
 			n = p.planning(pos, end)
 		}
@@ -185,6 +186,9 @@ func (p *parser) element(pos, limit int) *Node {
 	if n := p.drawer(pos, limit); n != nil {
 		return n
 	}
+	if n := p.lines(TypeFixedWidth, fixedWidthRe, pos, limit); n != nil {
+		return n
+	}
 	if n := p.keyword(pos, limit); n != nil {
 		return n
 	}
@@ -194,7 +198,8 @@ func (p *parser) element(pos, limit int) *Node {
 // startsElement は pos の行が段落以外の要素を始めるかを返す。段落はそ
 // こで終わる(org-element-paragraph-separate に相当)。
 func (p *parser) startsElement(pos, limit int) bool {
-	return commentRe.MatchString(p.line(pos)) || p.drawer(pos, limit) != nil || p.keyword(pos, limit) != nil
+	line := p.line(pos)
+	return commentRe.MatchString(line) || fixedWidthRe.MatchString(line) || p.drawer(pos, limit) != nil || p.keyword(pos, limit) != nil
 }
 
 // finish は中身が contentsEnd で終わる要素に、続く空行を含めた終わりを
@@ -212,6 +217,7 @@ var (
 	keywordRe      = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
 	planningRe     = regexp.MustCompile(`(?i)^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
 	commentRe      = regexp.MustCompile(`^[ \t]*#(?: |$)`)
+	fixedWidthRe   = regexp.MustCompile(`^[ \t]*:(?: |$)`)
 )
 
 // drawerEnd は [pos, limit) で最初の :END: 行の位置を返す。無ければ -1。
@@ -276,16 +282,17 @@ func (p *parser) planning(pos, limit int) *Node {
 	return p.finish(n, p.lineEnd(pos), limit)
 }
 
-// comment は連続するコメント行を 1 つの要素にする。
-func (p *parser) comment(pos, limit int) *Node {
+// lines は re に合う連続した行を、コメントや固定幅行のような 1 つの要
+// 素 t にする。
+func (p *parser) lines(t Type, re *regexp.Regexp, pos, limit int) *Node {
 	end := pos
-	for end < limit && commentRe.MatchString(p.line(end)) {
+	for end < limit && re.MatchString(p.line(end)) {
 		end = p.lineEnd(end)
 	}
 	if end == pos {
 		return nil
 	}
-	n := &Node{Type: TypeComment, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
+	n := &Node{Type: t, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
 	return p.finish(n, end, limit)
 }
 
