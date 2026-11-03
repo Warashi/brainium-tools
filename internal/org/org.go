@@ -56,7 +56,7 @@ type Node struct {
 func Parse(source string) *Node {
 	p := parser{src: source, listItems: map[int]listItem{}}
 	root := &Node{Type: TypeOrgData, Begin: 0, End: len(source), ContentsBegin: 0, ContentsEnd: len(source)}
-	root.Children = p.headlineContents(0, len(source), false)
+	root.Children = p.headlineContents(0, len(source), modeTop)
 	return root
 }
 
@@ -118,15 +118,11 @@ func (p *parser) nextHeadline(pos, limit, maxLevel int) int {
 }
 
 // headlineContents は見出しの中身(先頭の section と子の見出し)を返す。
-// afterHeadline は中身が見出しの行の直後から始まるか。
-func (p *parser) headlineContents(begin, end int, afterHeadline bool) []*Node {
+// m は先頭の section の最初の要素に使う mode。
+func (p *parser) headlineContents(begin, end int, m mode) []*Node {
 	var nodes []*Node
 	if first := p.nextHeadline(begin, end, 0); first > begin {
-		mode := modeTop
-		if afterHeadline {
-			mode = modePlanning
-		}
-		nodes = append(nodes, p.section(begin, first, mode))
+		nodes = append(nodes, p.section(begin, first, m))
 		begin = first
 	}
 	for begin < end {
@@ -145,7 +141,13 @@ func (p *parser) headline(begin, end int) *Node {
 		return n
 	}
 	n.ContentsBegin, n.ContentsEnd = contents, end
-	n.Children = p.headlineContents(contents, end, blanks == 0)
+	// 見出しの行と空行で離れた計画行と PROPERTIES ドロワーは、org では
+	// 見出しのものとみなされない
+	m := modeNone
+	if blanks == 0 {
+		m = modePlanning
+	}
+	n.Children = p.headlineContents(contents, end, m)
 	return n
 }
 
