@@ -24,6 +24,7 @@ const (
 	TypePlanning       Type = "planning"
 	TypeComment        Type = "comment"
 	TypeFixedWidth     Type = "fixed-width"
+	TypeHorizontalRule Type = "horizontal-rule"
 
 	TypeExampleBlock Type = "example-block"
 	TypeSrcBlock     Type = "src-block"
@@ -168,7 +169,7 @@ func (p *parser) elements(begin, end int, m mode) []*Node {
 		// org はコメントを計画行と PROPERTIES ドロワーより先に判定する
 		n := p.lines(TypeComment, commentRe, pos, end)
 		if n == nil && m == modePlanning {
-			n = p.planning(pos, end)
+			n = p.singleLine(TypePlanning, planningRe, pos, end)
 		}
 		if n == nil && m != modeNone {
 			n = p.propertyDrawer(pos, end)
@@ -198,7 +199,10 @@ func (p *parser) element(pos, limit int) *Node {
 	if n := p.block(pos, limit); n != nil {
 		return n
 	}
-	if n := p.keyword(pos, limit); n != nil {
+	if n := p.singleLine(TypeKeyword, keywordRe, pos, limit); n != nil {
+		return n
+	}
+	if n := p.singleLine(TypeHorizontalRule, horizontalRuleRe, pos, limit); n != nil {
 		return n
 	}
 	return p.paragraph(pos, limit)
@@ -208,7 +212,9 @@ func (p *parser) element(pos, limit int) *Node {
 // こで終わる(org-element-paragraph-separate に相当)。
 func (p *parser) startsElement(pos, limit int) bool {
 	line := p.line(pos)
-	return commentRe.MatchString(line) || fixedWidthRe.MatchString(line) || p.drawer(pos, limit) != nil || p.block(pos, limit) != nil || p.keyword(pos, limit) != nil
+	return commentRe.MatchString(line) || fixedWidthRe.MatchString(line) ||
+		keywordRe.MatchString(line) || horizontalRuleRe.MatchString(line) ||
+		p.drawer(pos, limit) != nil || p.block(pos, limit) != nil
 }
 
 // finish は中身が contentsEnd で終わる要素に、続く空行を含めた終わりを
@@ -219,15 +225,16 @@ func (p *parser) finish(n *Node, pos, limit int) *Node {
 }
 
 var (
-	drawerBeginRe  = regexp.MustCompile(`^[ \t]*:([\p{L}\p{N}\p{M}_-]+):[ \t]*$`)
-	drawerEndRe    = regexp.MustCompile(`(?i)^[ \t]*:END:[ \t]*$`)
-	propertiesRe   = regexp.MustCompile(`(?i)^[ \t]*:PROPERTIES:[ \t]*$`)
-	nodePropertyRe = regexp.MustCompile(`^[ \t]*:\S+:(?:[ \t].*)?$`)
-	keywordRe      = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
-	planningRe     = regexp.MustCompile(`(?i)^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
-	commentRe      = regexp.MustCompile(`^[ \t]*#(?: |$)`)
-	fixedWidthRe   = regexp.MustCompile(`^[ \t]*:(?: |$)`)
-	blockBeginRe   = regexp.MustCompile(`(?i)^[ \t]*#\+BEGIN_(\S+)`)
+	drawerBeginRe    = regexp.MustCompile(`^[ \t]*:([\p{L}\p{N}\p{M}_-]+):[ \t]*$`)
+	drawerEndRe      = regexp.MustCompile(`(?i)^[ \t]*:END:[ \t]*$`)
+	propertiesRe     = regexp.MustCompile(`(?i)^[ \t]*:PROPERTIES:[ \t]*$`)
+	nodePropertyRe   = regexp.MustCompile(`^[ \t]*:\S+:(?:[ \t].*)?$`)
+	keywordRe        = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
+	planningRe       = regexp.MustCompile(`(?i)^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
+	commentRe        = regexp.MustCompile(`^[ \t]*#(?: |$)`)
+	fixedWidthRe     = regexp.MustCompile(`^[ \t]*:(?: |$)`)
+	horizontalRuleRe = regexp.MustCompile(`^[ \t]*-{5,}[ \t]*$`)
+	blockBeginRe     = regexp.MustCompile(`(?i)^[ \t]*#\+BEGIN_(\S+)`)
 )
 
 // drawerEnd は [pos, limit) で最初の :END: 行の位置を返す。無ければ -1。
@@ -282,14 +289,6 @@ func (p *parser) propertyDrawer(pos, limit int) *Node {
 		n.ContentsBegin, n.ContentsEnd = contents, line
 	}
 	return p.finish(n, p.lineEnd(line), limit)
-}
-
-func (p *parser) planning(pos, limit int) *Node {
-	if !planningRe.MatchString(p.line(pos)) {
-		return nil
-	}
-	n := &Node{Type: TypePlanning, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
-	return p.finish(n, p.lineEnd(pos), limit)
 }
 
 // blockTypes は中身を element として解析しないブロックの種類。名前は大
@@ -356,11 +355,13 @@ func (p *parser) lines(t Type, re *regexp.Regexp, pos, limit int) *Node {
 	return p.finish(n, end, limit)
 }
 
-func (p *parser) keyword(pos, limit int) *Node {
-	if !keywordRe.MatchString(p.line(pos)) {
+// singleLine は re に合う 1 行を、キーワードや計画行のような要素 t にす
+// る。
+func (p *parser) singleLine(t Type, re *regexp.Regexp, pos, limit int) *Node {
+	if !re.MatchString(p.line(pos)) {
 		return nil
 	}
-	n := &Node{Type: TypeKeyword, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
+	n := &Node{Type: t, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
 	return p.finish(n, p.lineEnd(pos), limit)
 }
 
