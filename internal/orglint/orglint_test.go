@@ -378,6 +378,13 @@ func TestParseOrg(t *testing.T) {
 		}
 	})
 
+	t.Run("同じドロワーの :ID: が複数なら org-entry-get と同じく後ろの値を取る", func(t *testing.T) {
+		f := parseOrg("a.org", []byte(":PROPERTIES:\n:ID: first\n:ID: second\n:END:\n"))
+		if f.fileID != "second" || !slices.Equal(f.ids, []string{"second"}) {
+			t.Errorf("fileID = %q, ids = %v, want second", f.fileID, f.ids)
+		}
+	})
+
 	t.Run("PROPERTIES 以外のドロワーの :ID: は ID とみなさない", func(t *testing.T) {
 		f := parseOrg("a.org", []byte("* 見出し\n:LOGBOOK:\n:ID: logbook-id\n:END:\n"))
 		if len(f.ids) != 0 {

@@ -276,15 +276,16 @@ func collectIDs(n *org.Node, ids []string) []string {
 	return ids
 }
 
-// propertyID は PROPERTIES ドロワーの最初の :ID: の値を返す。無ければ
-// 空文字列。
+// propertyID は PROPERTIES ドロワーの :ID: の値を返す。無ければ空文字
+// 列。複数あれば org-entry-get と org-mem と同じく後ろの値を取る。
 func propertyID(drawer *org.Node) string {
+	var id string
 	for _, n := range drawer.Children {
 		if strings.EqualFold(n.Key, "ID") {
-			return n.Value
+			id = n.Value
 		}
 	}
-	return ""
+	return id
 }
 
 func checkPlacement(f orgFile) []Problem {
