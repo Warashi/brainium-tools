@@ -24,6 +24,7 @@ type diffNode struct {
 	ContentsEnd   *int              `json:"contents_end"`
 	PostBlank     int               `json:"post_blank"`
 	Attrs         map[string]string `json:"attrs"`
+	Secondary     []diffNode        `json:"secondary"`
 	Children      []diffNode        `json:"children"`
 }
 
@@ -136,11 +137,15 @@ func toDiffNode(n *Node, offsets []int) diffNode {
 		End:       offsets[n.End],
 		PostBlank: n.PostBlank,
 		Attrs:     attributes(n),
+		Secondary: []diffNode{},
 		Children:  []diffNode{},
 	}
 	if n.ContentsBegin >= 0 {
 		b, e := offsets[n.ContentsBegin], offsets[n.ContentsEnd]
 		d.ContentsBegin, d.ContentsEnd = &b, &e
+	}
+	for _, c := range n.Secondary {
+		d.Secondary = append(d.Secondary, toDiffNode(c, offsets))
 	}
 	for _, c := range n.Children {
 		d.Children = append(d.Children, toDiffNode(c, offsets))
@@ -180,14 +185,29 @@ func firstDiff(got, want diffNode, path string) string {
 	case !maps.Equal(got.Attrs, want.Attrs):
 		return field("attrs", got.Attrs, want.Attrs)
 	}
-	for i := range min(len(got.Children), len(want.Children)) {
-		child := fmt.Sprintf("%s/%d:%s", path, i, want.Children[i].Type)
-		if diff := firstDiff(got.Children[i], want.Children[i], child); diff != "" {
-			return diff
-		}
+	if diff := firstDiffNodes(got.Secondary, want.Secondary, path+"/secondary"); diff != "" {
+		return diff
+	}
+	if len(got.Secondary) != len(want.Secondary) {
+		return field("secondary の数", len(got.Secondary), len(want.Secondary))
+	}
+	if diff := firstDiffNodes(got.Children, want.Children, path); diff != "" {
+		return diff
 	}
 	if len(got.Children) != len(want.Children) {
 		return field("children の数", len(got.Children), len(want.Children))
+	}
+	return ""
+}
+
+// firstDiffNodes は got と want の対応する節点を前から比べ、最初の違い
+// を返す。数の違いは呼び出し側が見る。
+func firstDiffNodes(got, want []diffNode, path string) string {
+	for i := range min(len(got), len(want)) {
+		child := fmt.Sprintf("%s/%d:%s", path, i, want[i].Type)
+		if diff := firstDiff(got[i], want[i], child); diff != "" {
+			return diff
+		}
 	}
 	return ""
 }

@@ -1,0 +1,7 @@
+- foo [[id:a][b]] :: bar
+- *bold* tag ::
+- not a tag::x
+- [X] checked [[id:c]] :: d
+1. ordered [[id:e]] :: f
+- a :: b :: c
+- =a :: b= :: c

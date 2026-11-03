@@ -42,7 +42,15 @@
             :contents_end (or (org-diff--pos (org-element-contents-end node)) :null)
             :post_blank (or (org-element-post-blank node) 0)
             :attrs (org-diff--attrs node)
+            :secondary (org-diff--secondary node)
             :children (vconcat children)))))
+
+(defun org-diff--secondary (node)
+  "headline の title や item の tag のような secondary string の object。"
+  (let (objects)
+    (dolist (prop (alist-get (org-element-type node) org-element-secondary-value-alist))
+      (setq objects (append objects (delq nil (mapcar #'org-diff--node (org-element-property prop node))))))
+    (vconcat objects)))
 
 (defun org-diff--parse (file)
   (with-temp-buffer

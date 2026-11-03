@@ -49,7 +49,10 @@ type Node struct {
 	// Key と Value は node-property と keyword のキーと値。keyword の Key
 	// は org-element と同じく大文字にする。
 	Key, Value string
-	Children   []*Node
+	// Secondary は headline の title と item の tag の object。org-element
+	// と同じく Children には入れない。
+	Secondary []*Node
+	Children  []*Node
 }
 
 // Parse は source 全体を解析して org-data の節点を返す。
@@ -57,6 +60,7 @@ func Parse(source string) *Node {
 	p := parser{src: source, listItems: map[int]listItem{}}
 	root := &Node{Type: TypeOrgData, Begin: 0, End: len(source), ContentsBegin: 0, ContentsEnd: len(source)}
 	root.Children = p.headlineContents(0, len(source), modeTop)
+	p.headlineTitles(root)
 	return root
 }
 

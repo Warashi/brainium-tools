@@ -129,15 +129,19 @@ func (p *parser) skipBlockOrDrawer(pos, limit int) int {
 	return pos
 }
 
-// item は pos から始まる item を解析する。順序付きのリストでは
-// 「語 :: 説明」の語も中身に含める。
+// item は pos から始まる item を解析する。「語 :: 説明」の語は、順序の
+// 無いリストでは tag の object にし、順序付きのリストでは中身に含める。
 func (p *parser) item(pos, limit int) *Node {
 	m := fullItemRe.FindStringSubmatchIndex(p.line(pos))
 	end := min(limit, p.listItems[pos].end)
 	n := &Node{Type: TypeItem, Begin: pos, End: end, ContentsBegin: -1, ContentsEnd: -1}
 	contents := pos + m[1]
-	if m[4] >= 0 && strings.ContainsAny(p.src[pos+m[2]:pos+m[3]], ".)") {
-		contents = pos + m[4]
+	if m[4] >= 0 {
+		if strings.ContainsAny(p.src[pos+m[2]:pos+m[3]], ".)") {
+			contents = pos + m[4]
+		} else {
+			n.Secondary = p.objects(pos+m[4], pos+m[5], standardSet)
+		}
 	}
 	contents += len(p.src[contents:end]) - len(strings.TrimLeft(p.src[contents:end], " \r\t\n"))
 	if contents == end {
