@@ -82,5 +82,5 @@ $ nix fmt
 イル群と比べるときは `ORG_DIFF_CORPUS=<dir>` を渡す。
 
 ```console
-$ nix shell nixpkgs#emacs-nox -c env ORG_DIFF_CORPUS=<dir> go test ./internal/org
+$ nix shell --inputs-from . nixpkgs#emacs-nox -c env ORG_DIFF_CORPUS=<dir> go test ./internal/org
 ```
