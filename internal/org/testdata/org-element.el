@@ -30,7 +30,9 @@
     (insert-file-contents file)
     (let ((org-inhibit-startup t))
       (org-mode))
-    (org-diff--node (org-element-parse-buffer))))
+    ;; parser が object をまだ作らないので、object の有無で全体が食い違
+    ;; わないよう element の粒度で比べる
+    (org-diff--node (org-element-parse-buffer 'element))))
 
 (let ((files nil))
   (dolist (file command-line-args-left)
