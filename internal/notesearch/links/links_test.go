@@ -47,3 +47,21 @@ func TestCollectSkipsSelfUnknownAndDuplicateLinks(t *testing.T) {
 		t.Errorf("From(a.org) = %v, want none", got)
 	}
 }
+
+func TestCollectFollowsOnlyLinksOrgParses(t *testing.T) {
+	fsys := fstest.MapFS{
+		"a.org": note("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "A",
+			"#+begin_src org\n[[id:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb][例]]\n#+end_src\n"+
+				"=[[id:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb]]= と書く。\n"+
+				"* [[id:cccccccc-cccc-cccc-cccc-cccccccccccc][見出しの link]]\n"),
+		"b.org": note("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "B", ""),
+		"c.org": note("cccccccc-cccc-cccc-cccc-cccccccccccc", "C", ""),
+	}
+	g, err := Collect(fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := g.To("a.org"), []Note{{"c.org", "C"}}; !slices.Equal(got, want) {
+		t.Errorf("To(a.org) = %v, want %v", got, want)
+	}
+}

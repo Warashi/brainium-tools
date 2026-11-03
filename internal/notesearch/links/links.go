@@ -10,15 +10,12 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
-	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/Warashi/brainium-tools/internal/notesearch/evidence"
+	"github.com/Warashi/brainium-tools/internal/org"
 )
-
-// idLink は説明文の有無を問わない id リンク。
-var idLink = regexp.MustCompile(`\[\[id:([0-9A-Fa-f-]+)\](?:\[|\])`)
 
 // Note はリンクの片端。Path は fsys 内のファイル名。
 type Note struct {
@@ -69,8 +66,11 @@ func Collect(fsys fs.FS) (Graph, error) {
 	g := Graph{to: make(map[string][]Note), from: make(map[string][]Note)}
 	for name, content := range sources {
 		seen := make(map[string]bool)
-		for _, m := range idLink.FindAllStringSubmatch(content, -1) {
-			target, ok := byID[strings.ToLower(m[1])]
+		for _, l := range org.Links(org.Parse(content)) {
+			if l.LinkType != "id" {
+				continue
+			}
+			target, ok := byID[strings.ToLower(l.Path)]
 			if !ok || target.Path == name || seen[target.Path] {
 				continue
 			}
