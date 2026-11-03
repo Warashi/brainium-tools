@@ -19,7 +19,7 @@ func repo() fstest.MapFS {
 				"#+title: ノートの成熟度\n" +
 				"[[id:aaaaaaaa-1111-1111-1111-111111111111][索引の張り方]]を参照。\n")},
 		"tasks.org": {Data: []byte(
-			"* TODO [[id:aaaaaaaa-1111-1111-1111-111111111111][検索が\n外れる件]]を直す\n" +
+			"* TODO 検索を直す\n[[id:aaaaaaaa-1111-1111-1111-111111111111][検索が\n外れる件]]を直す\n" +
 				"[[id:22222222-2222-2222-2222-222222222222][note maturity\nの設計]]\n" +
 				"[[id:33333333-3333-3333-3333-333333333333][行き先の無いリンク]]\n" +
 				"[[id:aaaaaaaa-1111-1111-1111-111111111111]]\n")},
@@ -54,5 +54,28 @@ func TestCollect(t *testing.T) {
 		if !slices.Equal(g, w) {
 			t.Errorf("%s のリンク文 = %q, want %q", path, g, w)
 		}
+	}
+}
+
+func TestCollectFollowsOrg(t *testing.T) {
+	t.Parallel()
+
+	fsys := fstest.MapFS{
+		"notes/search.org": {Data: []byte(
+			":PROPERTIES:\n:ID:       aaaaaaaa-1111-1111-1111-111111111111\n:END:\n#+title: 全文検索\n")},
+		"notes/no-file-id.org": {Data: []byte(
+			"#+title: ファイルの ID が無い\n* 見出し\n:PROPERTIES:\n:ID:       bbbbbbbb-2222-2222-2222-222222222222\n:END:\n")},
+		"tasks.org": {Data: []byte(
+			"#+begin_src org\n[[id:aaaaaaaa-1111-1111-1111-111111111111][ブロックの中]]\n#+end_src\n" +
+				"- [[id:aaaaaaaa-1111-1111-1111-111111111111][説明リストの語]] :: 説明\n" +
+				"[[id:bbbbbbbb-2222-2222-2222-222222222222][見出しの ID]]\n")},
+	}
+	got, err := anchor.Collect(fsys)
+	if err != nil {
+		t.Fatalf("Collect failed: %v", err)
+	}
+	want := map[string][]string{"search.org": {"説明リストの語"}}
+	if !maps.EqualFunc(got, want, slices.Equal) {
+		t.Errorf("Collect = %q, want %q", got, want)
 	}
 }

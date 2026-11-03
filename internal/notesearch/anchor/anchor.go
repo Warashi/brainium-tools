@@ -11,23 +11,17 @@ import (
 	"io/fs"
 	"maps"
 	"path"
-	"regexp"
 	"slices"
 	"strings"
 	"unicode"
+
+	"github.com/Warashi/brainium-tools/internal/notesearch/evidence"
+	"github.com/Warashi/brainium-tools/internal/org"
 )
 
 // notesDir は索引の対象。リンク元は全ディレクトリから集めるが、引き当て
 // 先はここに限る。
 const notesDir = "notes"
-
-// fileID はファイル先頭の PROPERTIES ドロワーの :ID: を拾う。notes/ は
-// 1 ファイル 1 ノードなので、最初に現れた :ID: がファイルレベルのもの。
-var fileID = regexp.MustCompile(`(?m)^:ID:\s+([0-9A-Fa-f-]+)\s*$`)
-
-// idLink は説明文つきの id リンク。org は fill で説明文の途中に改行を
-// 入れるので、複数行にまたがるものも拾う。
-var idLink = regexp.MustCompile(`(?s)\[\[id:([0-9A-Fa-f-]+)\]\[(.*?)\]\]`)
 
 // Collect は fsys 内の org を走査し、notes/ のファイル名をキーにリンク文
 // を返す。引き当てられない UUID と、説明文の無いリンクは落とす。
@@ -42,20 +36,25 @@ func Collect(fsys fs.FS) (map[string][]string, error) {
 		if path.Dir(name) != notesDir {
 			continue
 		}
-		if m := fileID.FindStringSubmatch(content); m != nil {
-			target[strings.ToLower(m[1])] = path.Base(name)
+		if id := evidence.ParseMetadata(content).ID; id != "" {
+			target[strings.ToLower(id)] = path.Base(name)
 		}
 	}
 
 	out := make(map[string][]string)
 	// 走査順を固定して、同じ corpus なら同じ順でリンク文が並ぶようにする
 	for _, name := range slices.Sorted(maps.Keys(files)) {
-		for _, m := range idLink.FindAllStringSubmatch(files[name], -1) {
-			p, ok := target[strings.ToLower(m[1])]
+		content := files[name]
+		for _, l := range org.Links(org.Parse(content)) {
+			if l.LinkType != "id" || l.ContentsBegin < 0 {
+				continue
+			}
+			p, ok := target[strings.ToLower(l.Path)]
 			if !ok {
 				continue
 			}
-			if text := unfill(m[2]); text != "" {
+			// 説明文は org が fill で途中に改行を入れるので畳む
+			if text := unfill(content[l.ContentsBegin:l.ContentsEnd]); text != "" {
 				out[p] = append(out[p], text)
 			}
 		}
