@@ -15,7 +15,7 @@ const (
 // 集合のうち、解析する種類だけを持つ。
 var (
 	minimalSet  = []Type{TypeCode, TypeVerbatim}
-	standardSet = minimalSet
+	standardSet = append([]Type{TypeTimestamp}, minimalSet...)
 )
 
 // objectSpan は object の解析器が狭めて見る範囲 [begin, end)。Emacs が
@@ -56,6 +56,10 @@ func (s objectSpan) object(pos int, restriction []Type) *Node {
 	case '=':
 		if allowed(TypeVerbatim) {
 			return s.emphasis(pos, '=', TypeVerbatim)
+		}
+	case '<', '[':
+		if allowed(TypeTimestamp) {
+			return s.timestamp(pos)
 		}
 	}
 	return nil
