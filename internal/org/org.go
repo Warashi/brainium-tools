@@ -22,6 +22,7 @@ const (
 	TypeNodeProperty   Type = "node-property"
 	TypeKeyword        Type = "keyword"
 	TypePlanning       Type = "planning"
+	TypeComment        Type = "comment"
 )
 
 // Node は木の節点 1 つ。位置は source のバイト位置で、End は直後の空行
@@ -143,7 +144,7 @@ type mode int
 const (
 	modeNone mode = iota
 	// modeTop はファイル先頭の section の先頭で、PROPERTIES ドロワーを
-	// 認める。
+	// 認める。コメントの後も認める。
 	modeTop
 	// modePlanning は見出しの行の直後で、計画行と PROPERTIES ドロワー
 	// を認める。
@@ -157,8 +158,9 @@ func (p *parser) elements(begin, end int, m mode) []*Node {
 	var nodes []*Node
 	_, pos := p.skipBlank(begin, end)
 	for pos < end {
-		var n *Node
-		if m == modePlanning {
+		// org はコメントを計画行と PROPERTIES ドロワーより先に判定する
+		n := p.comment(pos, end)
+		if n == nil && m == modePlanning {
 			n = p.planning(pos, end)
 		}
 		if n == nil && m != modeNone {
@@ -169,7 +171,7 @@ func (p *parser) elements(begin, end int, m mode) []*Node {
 		}
 		nodes = append(nodes, n)
 		pos = n.End
-		if n.Type == TypePlanning {
+		if n.Type == TypePlanning || (m == modeTop && n.Type == TypeComment) {
 			m = modePropertyDrawer
 		} else {
 			m = modeNone
@@ -192,7 +194,7 @@ func (p *parser) element(pos, limit int) *Node {
 // startsElement は pos の行が段落以外の要素を始めるかを返す。段落はそ
 // こで終わる(org-element-paragraph-separate に相当)。
 func (p *parser) startsElement(pos, limit int) bool {
-	return p.drawer(pos, limit) != nil || p.keyword(pos, limit) != nil
+	return commentRe.MatchString(p.line(pos)) || p.drawer(pos, limit) != nil || p.keyword(pos, limit) != nil
 }
 
 // finish は中身が contentsEnd で終わる要素に、続く空行を含めた終わりを
@@ -209,6 +211,7 @@ var (
 	nodePropertyRe = regexp.MustCompile(`^[ \t]*:\S+:(?:[ \t].*)?$`)
 	keywordRe      = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
 	planningRe     = regexp.MustCompile(`(?i)^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
+	commentRe      = regexp.MustCompile(`^[ \t]*#(?: |$)`)
 )
 
 // drawerEnd は [pos, limit) で最初の :END: 行の位置を返す。無ければ -1。
@@ -271,6 +274,19 @@ func (p *parser) planning(pos, limit int) *Node {
 	}
 	n := &Node{Type: TypePlanning, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
 	return p.finish(n, p.lineEnd(pos), limit)
+}
+
+// comment は連続するコメント行を 1 つの要素にする。
+func (p *parser) comment(pos, limit int) *Node {
+	end := pos
+	for end < limit && commentRe.MatchString(p.line(end)) {
+		end = p.lineEnd(end)
+	}
+	if end == pos {
+		return nil
+	}
+	n := &Node{Type: TypeComment, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
+	return p.finish(n, end, limit)
 }
 
 func (p *parser) keyword(pos, limit int) *Node {

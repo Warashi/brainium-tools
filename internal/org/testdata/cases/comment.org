@@ -1,0 +1,14 @@
+# foo
+#
+# bar
+:PROPERTIES:
+:ID: 00000000-0000-0000-0000-000000000000
+:END:
+baz
+# qux
+
+quux
+* corge
+# grault
+SCHEDULED: <2026-01-01 Thu>
+#garply
