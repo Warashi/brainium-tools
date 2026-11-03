@@ -1,8 +1,10 @@
 ;;; syntax.el --- org-mode の構文表による文字の分類を範囲で出す -*- lexical-binding: t -*-
 
 ;; 使い方: emacs -Q --batch -l syntax.el
-;; 標準出力に {"space": [[LO, HI], ...], "word": ..., "latin_word": ...} を出す。
+;; 標準出力に {"space": [[LO, HI], ...], "word": ..., ...} を出す。
 ;; latin_word は、直後のラテン文字を単語の始まり(\<)にしない文字。
+;; latex_fragment_end は、$ で囲む LaTeX の断片の直後に置ける文字の
+;; うち構文の分類で決まるもの。
 
 (require 'org)
 (require 'json)
@@ -24,4 +26,8 @@
                 :word (syntax--ranges (lambda (c) (eq (char-syntax c) ?w)))
                 :latin_word (syntax--ranges
                              (lambda (c)
-                               (not (string-match-p "\\`[^z-a]\\<" (string c ?h)))))))))
+                               (not (string-match-p "\\`[^z-a]\\<" (string c ?h)))))
+                :latex_fragment_end (syntax--ranges
+                                     (lambda (c)
+                                       (string-match-p "\\`\\(?:\\s.\\|\\s-\\|\\s(\\|\\s)\\|\\s\"\\)"
+                                                       (string c))))))))

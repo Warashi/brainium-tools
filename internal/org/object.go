@@ -15,7 +15,7 @@ const (
 // minimalSet と standardSet は org-element-object-restrictions の同名の
 // 集合のうち、解析する種類だけを持つ。
 var (
-	minimalSet  = []Type{TypeBold, TypeCode, TypeVerbatim}
+	minimalSet  = []Type{TypeBold, TypeCode, TypeLatexFragment, TypeVerbatim}
 	standardSet = append([]Type{TypeLink, TypeTimestamp}, minimalSet...)
 )
 
@@ -62,6 +62,15 @@ func (s objectSpan) object(pos int, restriction []Type) *Node {
 	case '*':
 		if allowed(TypeBold) {
 			return s.emphasis(pos, '*', TypeBold)
+		}
+	case '$':
+		if allowed(TypeLatexFragment) {
+			return s.latexFragment(pos)
+		}
+	case '\\':
+		// org は \\ の後に改行(line-break)しか試さない
+		if pos+1 < s.end && s.p.src[pos+1] != '\\' && allowed(TypeLatexFragment) {
+			return s.latexFragment(pos)
 		}
 	case '~':
 		if allowed(TypeCode) {
