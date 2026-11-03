@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	TypeBold     Type = "bold"
 	TypeVerbatim Type = "verbatim"
 	TypeCode     Type = "code"
 )
@@ -14,12 +15,13 @@ const (
 // minimalSet と standardSet は org-element-object-restrictions の同名の
 // 集合のうち、解析する種類だけを持つ。
 var (
-	minimalSet  = []Type{TypeCode, TypeVerbatim}
+	minimalSet  = []Type{TypeBold, TypeCode, TypeVerbatim}
 	standardSet = append([]Type{TypeLink, TypeTimestamp}, minimalSet...)
 )
 
 // objectRestrictions は中身を持つ object の中に置ける object の種類。
 var objectRestrictions = map[Type][]Type{
+	TypeBold: standardSet,
 	TypeLink: minimalSet,
 }
 
@@ -57,6 +59,10 @@ func (p *parser) objects(begin, end int, restriction []Type) []*Node {
 func (s objectSpan) object(pos int, restriction []Type) *Node {
 	allowed := func(t Type) bool { return slices.Contains(restriction, t) }
 	switch s.p.src[pos] {
+	case '*':
+		if allowed(TypeBold) {
+			return s.emphasis(pos, '*', TypeBold)
+		}
 	case '~':
 		if allowed(TypeCode) {
 			return s.emphasis(pos, '~', TypeCode)
