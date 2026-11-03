@@ -83,7 +83,7 @@
               env = (old.env or { }) // {
                 ORG_DIFF_REQUIRE = "1";
               };
-              checkFlags = [ "-run=^TestParseMatchesOrgElement$" ];
+              checkFlags = [ "-run=^(TestParseMatchesOrgElement|TestSyntaxMatchesEmacs)$" ];
             });
       });
 

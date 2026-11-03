@@ -30,6 +30,19 @@ type diffNode struct {
 // クトリを渡すと、その配下の org ファイルも比べる。testdata/objects は
 // object まで、それ以外は element の粒度で比べる。
 func TestParseMatchesOrgElement(t *testing.T) {
+	emacs := lookEmacs(t)
+	elements := orgFiles(t, "testdata/cases")
+	if corpus := os.Getenv("ORG_DIFF_CORPUS"); corpus != "" {
+		elements = append(elements, orgFiles(t, corpus)...)
+	}
+	compareWithOrgElement(t, emacs, "element", elements)
+	compareWithOrgElement(t, emacs, "object", orgFiles(t, "testdata/objects"))
+}
+
+// lookEmacs は emacs のパスを返す。無ければテストを飛ばすが、
+// ORG_DIFF_REQUIRE=1 なら失敗にする。
+func lookEmacs(t *testing.T) string {
+	t.Helper()
 	emacs, err := exec.LookPath("emacs")
 	if err != nil {
 		if os.Getenv("ORG_DIFF_REQUIRE") == "1" {
@@ -37,12 +50,21 @@ func TestParseMatchesOrgElement(t *testing.T) {
 		}
 		t.Skip("emacs が PATH に無い")
 	}
-	elements := orgFiles(t, "testdata/cases")
-	if corpus := os.Getenv("ORG_DIFF_CORPUS"); corpus != "" {
-		elements = append(elements, orgFiles(t, corpus)...)
+	return emacs
+}
+
+func runEmacs(t *testing.T, emacs string, args ...string) []byte {
+	t.Helper()
+	cmd := exec.Command(emacs, append([]string{"-Q", "--batch"}, args...)...)
+	// org-persist などが HOME に書こうとするので、書ける場所に向ける
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("emacs: %v\n%s", err, stderr.String())
 	}
-	compareWithOrgElement(t, emacs, "element", elements)
-	compareWithOrgElement(t, emacs, "object", orgFiles(t, "testdata/objects"))
+	return out
 }
 
 func compareWithOrgElement(t *testing.T, emacs, granularity string, files []string) {
@@ -69,7 +91,7 @@ func compareWithOrgElement(t *testing.T, emacs, granularity string, files []stri
 
 // objectTypes は Parse が作る object の種類。element の粒度で比べると
 // きに木から除く。
-var objectTypes = map[Type]bool{TypeVerbatim: true, TypeCode: true, TypeTimestamp: true}
+var objectTypes = map[Type]bool{TypeVerbatim: true, TypeCode: true, TypeTimestamp: true, TypeLink: true}
 
 func dropObjects(n *Node) {
 	var children []*Node
@@ -106,16 +128,7 @@ func orgFiles(t *testing.T, dir string) []string {
 
 func runOrgElement(t *testing.T, emacs, granularity string, files []string) map[string]diffNode {
 	t.Helper()
-	args := append([]string{"-Q", "--batch", "-l", "testdata/org-element.el", granularity}, files...)
-	cmd := exec.Command(emacs, args...)
-	// org-persist などが HOME に書こうとするので、書ける場所に向ける
-	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
-	var stderr strings.Builder
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("emacs: %v\n%s", err, stderr.String())
-	}
+	out := runEmacs(t, emacs, append([]string{"-l", "testdata/org-element.el", granularity}, files...)...)
 	var result struct {
 		OrgVersion string              `json:"org_version"`
 		Files      map[string]diffNode `json:"files"`

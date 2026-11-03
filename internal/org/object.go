@@ -15,8 +15,13 @@ const (
 // 集合のうち、解析する種類だけを持つ。
 var (
 	minimalSet  = []Type{TypeCode, TypeVerbatim}
-	standardSet = append([]Type{TypeTimestamp}, minimalSet...)
+	standardSet = append([]Type{TypeLink, TypeTimestamp}, minimalSet...)
 )
+
+// objectRestrictions は中身を持つ object の中に置ける object の種類。
+var objectRestrictions = map[Type][]Type{
+	TypeLink: minimalSet,
+}
 
 // objectSpan は object の解析器が狭めて見る範囲 [begin, end)。Emacs が
 // 中身の範囲に narrow して解析するのに合わせ、begin を行頭として扱い、
@@ -38,6 +43,9 @@ func (p *parser) objects(begin, end int, restriction []Type) []*Node {
 			pos += size
 			continue
 		}
+		if n.ContentsBegin >= 0 {
+			n.Children = p.objects(n.ContentsBegin, n.ContentsEnd, objectRestrictions[n.Type])
+		}
 		nodes = append(nodes, n)
 		pos = n.End
 	}
@@ -57,9 +65,26 @@ func (s objectSpan) object(pos int, restriction []Type) *Node {
 		if allowed(TypeVerbatim) {
 			return s.emphasis(pos, '=', TypeVerbatim)
 		}
-	case '<', '[':
-		if allowed(TypeTimestamp) {
+	case '[':
+		if pos+1 < s.end && s.p.src[pos+1] == '[' {
+			if allowed(TypeLink) {
+				return s.link(pos)
+			}
+		} else if allowed(TypeTimestamp) {
 			return s.timestamp(pos)
+		}
+	case '<':
+		if allowed(TypeTimestamp) {
+			if n := s.timestamp(pos); n != nil {
+				return n
+			}
+		}
+		if allowed(TypeLink) {
+			return s.link(pos)
+		}
+	default:
+		if c := s.p.src[pos] | 0x20; 'a' <= c && c <= 'z' && allowed(TypeLink) {
+			return s.link(pos)
 		}
 	}
 	return nil
@@ -140,14 +165,4 @@ func (s objectSpan) runeAt(pos int) (rune, bool) {
 	}
 	r, _ := utf8.DecodeRuneInString(s.p.src[pos:s.end])
 	return r, true
-}
-
-// isSpace は org-mode の構文表で空白に分類される文字かを返す。
-func isSpace(r rune) bool {
-	switch {
-	case r == '\t', r == '\n', r == '\f', r == '\r', r == ' ', r == 0xa0,
-		r >= 0x2000 && r <= 0x200b, r == 0x202f, r == 0x205f, r == 0x3000:
-		return true
-	}
-	return false
 }

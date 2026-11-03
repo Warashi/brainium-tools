@@ -1,0 +1,8 @@
+[[id:00000000-0000-0000-0000-000000000000][説明 =code= [2026-01-01 Thu]]] と [[https://example.com]]
+本https://example.com/です。 https://example.com/a(b)c, https://example.com/x.
+'https://example.com' (https://example.com) <https://example.com/a b> <id:x>
+file:foo.org、[[file:a.org::*見出し][a]] [[説明
+を折り返す]] [[a][b]c]] [[a]b]
+mailto:a@example.com. https://ex.com/a_b ftp:x/ https:// https://a- shell:ls
+[[a\]b]] [[https://example.com][[[x]]]]
+HTTPS://a.com Id:x <HTTP://b.com> id:xy
