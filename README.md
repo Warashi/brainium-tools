@@ -44,7 +44,9 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
   `:STALE_AFTER:` は org の日付として読めること
 - 本文段落の折り返し(全角幅換算 70 桁、Emacs の `fill-column` 70 相当)。
   行のつなぎ方は `fill-separate-heterogeneous-words-with-space` を `t` に
-  した Emacs に合わせ、つなぎ目の両側が和文のときだけ詰める
+  した Emacs に合わせ、つなぎ目の両側が和文のときだけ詰める。コメント
+  行も Emacs の `org-fill-paragraph` と同じく、`#` だけの行で区切った段
+  落ごとに、継続行の頭に 1 行目の `# ` などを付けて折り返す
 - `=…=` / `~…~` のコード表記の前後の文字
 - `tasks.org` の 1 task が 40 行以内であること
 

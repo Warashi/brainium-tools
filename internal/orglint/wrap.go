@@ -25,6 +25,8 @@ const kinsokuLimit = 4
 // 返す。折り返さない場合は -1 を返す。offset は行頭に付く継続行の
 // インデント幅。hideIndent は line の行頭の字下げが不可視属性を継承して
 // いるかで、直前の折り返しが空白を飲み込まなかったときだけ真になる。
+// head は行頭にある fill-prefix の rune 数で、Emacs と同じくその中と
+// 直後では折り返さない。
 //
 // Emacs の挙動を実測して次の順に決めている。
 //
@@ -36,7 +38,7 @@ const kinsokuLimit = 4
 //     行末を伸ばして飲み込む。
 //  3. 折り返し点がなければ(長い URL など)、そこから後ろにある最初の
 //     折り返し点まで進む。
-func fillBreak(line string, limit int, offset int, hideIndent bool) int {
+func fillBreak(line string, limit int, offset int, hideIndent bool, head int) int {
 	rs := []rune(line)
 	ws := runeWidths(line, hideIndent)
 	spans := noWrapSpans(rs)
@@ -62,14 +64,14 @@ func fillBreak(line string, limit int, offset int, hideIndent bool) int {
 
 	// 2. そこまでにある最後の折り返し点へ戻る。
 	at := -1
-	for i := 1; i < reach; i++ {
-		if hasContent(rs[:i]) && isBreakPoint(rs, i, spans) {
+	for i := head + 1; i < reach; i++ {
+		if hasContent(rs[head:i]) && isBreakPoint(rs, i, spans) {
 			at = i
 		}
 	}
 	// 3. 見つからなければ後ろ向きに探す。
 	if at < 0 {
-		for i := reach; i < len(rs); i++ {
+		for i := max(reach, head+1); i < len(rs); i++ {
 			if isBreakPoint(rs, i, spans) {
 				at = i
 				break
@@ -85,7 +87,7 @@ func fillBreak(line string, limit int, offset int, hideIndent bool) int {
 		at--
 	}
 	at = kinsoku(rs, ws, at, limit, offset)
-	if at < 0 || !hasContent(rs[:at]) || !hasContent(rs[at:]) {
+	if at <= head || !hasContent(rs[head:at]) || !hasContent(rs[at:]) {
 		return -1
 	}
 	return at

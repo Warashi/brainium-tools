@@ -67,17 +67,25 @@ func fillParagraph(para []string, indent string) []string {
 }
 
 // fillOnce は段落を 1 行につないでから fillColumn で折り返し直し、継続
-// 行に indent を付ける。
+// 行に indent を付ける。コメントの # のように空白以外を含む indent は、
+// Emacs の fill-prefix と同じく継続行から剥がしてつなぎ、その中と直後で
+// は折り返さない。
 func fillOnce(para []string, indent string) []string {
+	prefix := strings.TrimRight(indent, " \t")
+	head := 0
+	if strings.TrimSpace(indent) != "" {
+		head = len([]rune(indent))
+	}
 	text := strings.TrimRight(para[0], " \t")
 	for _, line := range para[1:] {
+		line = strings.TrimPrefix(strings.TrimLeft(line, " \t"), strings.TrimLeft(prefix, " \t"))
 		text = joinLine(text, strings.TrimSpace(line))
 	}
 
 	var out []string
 	hideIndent := false
 	for {
-		at := fillBreak(text, fillColumn, 0, hideIndent)
+		at := fillBreak(text, fillColumn, 0, hideIndent, head)
 		if at < 0 {
 			break
 		}

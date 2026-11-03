@@ -99,6 +99,51 @@ func TestFormat(t *testing.T) {
 		}
 	})
 
+	// コメントの期待値は Emacs 30 の org-fill-paragraph(fill-column 70)の
+	// 実測。継続行の頭がリンクで始まる場合の不可視属性の継承は測っていない。
+	t.Run("コメントは継続行の頭に # と空白を付けて折り返す", func(t *testing.T) {
+		a := func(n int) string { return strings.Repeat("あ", n) }
+		for _, c := range []struct{ name, body, want string }{
+			{"長い行", "# " + a(50) + "\n", "# " + a(34) + "\n# " + a(16) + "\n"},
+			{"和文の行は詰めてつなぐ", "# 短い\n# 行\n", "# 短い行\n"},
+			{"欧文の行は空白でつなぐ", "# foo bar\n# baz\n", "# foo bar baz\n"},
+			{"和文と欧文の境界は空白でつなぐ", "# あいう\n# orglint の\n", "# あいう orglint の\n"},
+			{"字下げしたコメント", "  # " + a(50) + "\n", "  # " + a(33) + "\n  # " + a(17) + "\n"},
+			{"# の後の空白が複数", "#  " + a(50) + "\n", "#  " + a(33) + "\n#  " + a(17) + "\n"},
+			{"# の後の - も継続行の頭に含める", "# - " + a(50) + "\n", "# - " + a(33) + "\n# - " + a(17) + "\n"},
+			{"継続行の頭は 1 行目に揃える", "# あい\n#  " + a(50) + "\n", "# あい" + a(32) + "\n# " + a(18) + "\n"},
+			{"# だけの行で段落を分ける", "# " + a(50) + "\n#\n# あ\n# \n# い\n", "# " + a(34) + "\n# " + a(16) + "\n#\n# あ\n# \n# い\n"},
+			{"リストの中のコメントも行自身の頭に揃える", "- item\n  # " + a(50) + "\n", "- item\n  # " + a(33) + "\n  # " + a(17) + "\n"},
+			{"リンクの記法は幅に数えない", "# [[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][行幅]]" + a(50) + "\n",
+				"# [[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][行幅]]" + a(32) + "\n# " + a(18) + "\n"},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				if got := format(t, c.body); got != c.want {
+					t.Errorf("got:\n%s\nwant:\n%s", got, c.want)
+				}
+			})
+		}
+	})
+
+	t.Run("コメントの頭の直後では折り返さない", func(t *testing.T) {
+		url := "https://example.com/" + strings.Repeat("a", 52)
+		for _, head := range []string{"# ", "# - "} {
+			got := format(t, head+url+" あ\n")
+			want := head + url + "\n" + head + "あ\n"
+			if got != want {
+				t.Errorf("got:\n%s\nwant:\n%s", got, want)
+			}
+		}
+	})
+
+	t.Run("コメントの整形は冪等である", func(t *testing.T) {
+		body := "# - " + strings.Repeat("あ", 300) + "\n#\n  # " + strings.Repeat("か", 200) + "\n"
+		once := format(t, body)
+		if twice := format(t, once); twice != once {
+			t.Errorf("2 回目で変わった:\n%s\n---\n%s", once, twice)
+		}
+	})
+
 	t.Run("見出し・表・ブロック・ドロワーには触れない", func(t *testing.T) {
 		long := strings.Repeat("あ", 50)
 		body := "* " + long + "\n" +

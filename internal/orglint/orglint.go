@@ -218,6 +218,7 @@ func lineLayout(src string, root *org.Node, lines []string) layout {
 				mark(c, kindKeyword)
 			case org.TypeComment:
 				mark(c, kindComment)
+				l.commentParagraphs(lines, index(c.Begin), last(c))
 			case org.TypeParagraph:
 				// 閉じていないドロワーは org では段落になるが、折り返すと
 				// :PROPERTIES: などの行がつながって壊れる
@@ -242,6 +243,29 @@ func lineLayout(src string, root *org.Node, lines []string) layout {
 	}
 	walk(root)
 	return l
+}
+
+var (
+	// commentSeparatorRe は org-fill-element がコメントの段落の区切りと
+	// する行。
+	commentSeparatorRe = regexp.MustCompile(`^[ \t]*#[ \t]*$`)
+	// commentPrefixRe はコメントの継続行に付ける fill-prefix。# の後ろは
+	// org-mode の adaptive-fill-regexp の既定値。
+	commentPrefixRe = regexp.MustCompile(`^[ \t]*#[-–!|#%;>*·•‣⁃◦ \t]*`)
+)
+
+// commentParagraphs はコメントの行 [first, last] を # だけの行で段落に
+// 分ける。継続行の頭は段落の 1 行目の fill-prefix に揃える。
+func (l *layout) commentParagraphs(lines []string, first, last int) {
+	for i := first; i <= last; i++ {
+		if commentSeparatorRe.MatchString(lines[i]) {
+			continue
+		}
+		if i == first || commentSeparatorRe.MatchString(lines[i-1]) {
+			l.indents = append(l.indents, commentPrefixRe.FindString(lines[i]))
+		}
+		l.paras[i] = len(l.indents) - 1
+	}
 }
 
 // itemBodyColumn は item の行の本文が始まる桁を返す
