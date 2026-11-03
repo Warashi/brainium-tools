@@ -3,6 +3,7 @@
 ;; 使い方: emacs -Q --batch -l org-element.el FILE...
 ;; 標準出力に {"org_version": ..., "files": {FILE: TREE, ...}} を出す。
 ;; TREE の位置は 0 始まりの文字(code point)単位。plain-text は出さない。
+;; attrs には org-diff--attributes に挙げた型の属性だけを出す。
 
 (require 'org)
 (require 'org-element)
@@ -11,8 +12,17 @@
 
 (setq org-element-use-cache nil)
 
+(defconst org-diff--attributes
+  '((node-property :key :value))
+  "型ごとに比べる属性。ツールが使う属性だけを挙げる。")
+
 (defun org-diff--pos (pos)
   (and pos (1- pos)))
+
+(defun org-diff--attrs (node)
+  (let (plist)
+    (dolist (prop (alist-get (org-element-type node) org-diff--attributes) plist)
+      (setq plist (append plist (list prop (or (org-element-property prop node) :null)))))))
 
 (defun org-diff--node (node)
   (let ((children (delq nil (mapcar #'org-diff--node (org-element-contents node)))))
@@ -23,6 +33,7 @@
             :contents_begin (or (org-diff--pos (org-element-contents-begin node)) :null)
             :contents_end (or (org-diff--pos (org-element-contents-end node)) :null)
             :post_blank (or (org-element-post-blank node) 0)
+            :attrs (org-diff--attrs node)
             :children (vconcat children)))))
 
 (defun org-diff--parse (file)
@@ -36,8 +47,12 @@
   (dolist (file command-line-args-left)
     (push (cons (intern file) (org-diff--parse file)) files))
   (setq command-line-args-left nil)
-  (princ (json-serialize
-          (list :org_version org-version
-                :files (let (plist)
-                         (dolist (f files plist)
-                           (setq plist (append (list (car f) (cdr f)) plist))))))))
+  ;; json-serialize は UTF-8 の unibyte 文字列を返し、そのまま princ する
+  ;; と非 ASCII が raw byte として出力し直されて化ける
+  (princ (decode-coding-string
+          (json-serialize
+           (list :org_version org-version
+                 :files (let (plist)
+                          (dolist (f files plist)
+                            (setq plist (append (list (car f) (cdr f)) plist))))))
+          'utf-8)))

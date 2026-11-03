@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,13 +16,14 @@ import (
 
 // diffNode は org-element.el が出す節点。位置は 0 始まりの文字単位。
 type diffNode struct {
-	Type          string     `json:"type"`
-	Begin         int        `json:"begin"`
-	End           int        `json:"end"`
-	ContentsBegin *int       `json:"contents_begin"`
-	ContentsEnd   *int       `json:"contents_end"`
-	PostBlank     int        `json:"post_blank"`
-	Children      []diffNode `json:"children"`
+	Type          string            `json:"type"`
+	Begin         int               `json:"begin"`
+	End           int               `json:"end"`
+	ContentsBegin *int              `json:"contents_begin"`
+	ContentsEnd   *int              `json:"contents_end"`
+	PostBlank     int               `json:"post_blank"`
+	Attrs         map[string]string `json:"attrs"`
+	Children      []diffNode        `json:"children"`
 }
 
 // TestParseMatchesOrgElement は Parse の木が Emacs の org-element と一致
@@ -132,6 +134,7 @@ func toDiffNode(n *Node, offsets []int) diffNode {
 		Begin:     offsets[n.Begin],
 		End:       offsets[n.End],
 		PostBlank: n.PostBlank,
+		Attrs:     attributes(n),
 		Children:  []diffNode{},
 	}
 	if n.ContentsBegin >= 0 {
@@ -142,6 +145,16 @@ func toDiffNode(n *Node, offsets []int) diffNode {
 		d.Children = append(d.Children, toDiffNode(c, offsets))
 	}
 	return d
+}
+
+// attributes は org-element.el の org-diff--attributes と同じ属性を取り
+// 出す。
+func attributes(n *Node) map[string]string {
+	switch n.Type {
+	case TypeNodeProperty:
+		return map[string]string{"key": n.Key, "value": n.Value}
+	}
+	return map[string]string{}
 }
 
 func firstDiff(got, want diffNode, path string) string {
@@ -161,6 +174,8 @@ func firstDiff(got, want diffNode, path string) string {
 		return field("contents_end", fmtPos(got.ContentsEnd), fmtPos(want.ContentsEnd))
 	case got.PostBlank != want.PostBlank:
 		return field("post_blank", got.PostBlank, want.PostBlank)
+	case !maps.Equal(got.Attrs, want.Attrs):
+		return field("attrs", got.Attrs, want.Attrs)
 	}
 	for i := range min(len(got.Children), len(want.Children)) {
 		child := fmt.Sprintf("%s/%d:%s", path, i, want.Children[i].Type)

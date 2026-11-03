@@ -44,7 +44,9 @@ type Node struct {
 	ContentsBegin int
 	ContentsEnd   int
 	PostBlank     int
-	Children      []*Node
+	// Key と Value は node-property のキーと値。
+	Key, Value string
+	Children   []*Node
 }
 
 // Parse は source 全体を解析して org-data の節点を返す。
@@ -244,10 +246,11 @@ func (p *parser) finish(n *Node, pos, limit int) *Node {
 }
 
 var (
-	drawerBeginRe    = regexp.MustCompile(`^[ \t]*:([\p{L}\p{N}\p{M}_-]+):[ \t]*$`)
-	drawerEndRe      = regexp.MustCompile(`(?i)^[ \t]*:END:[ \t]*$`)
-	propertiesRe     = regexp.MustCompile(`(?i)^[ \t]*:PROPERTIES:[ \t]*$`)
-	nodePropertyRe   = regexp.MustCompile(`^[ \t]*:\S+:(?:[ \t].*)?$`)
+	drawerBeginRe = regexp.MustCompile(`^[ \t]*:([\p{L}\p{N}\p{M}_-]+):[ \t]*$`)
+	drawerEndRe   = regexp.MustCompile(`(?i)^[ \t]*:END:[ \t]*$`)
+	propertiesRe  = regexp.MustCompile(`(?i)^[ \t]*:PROPERTIES:[ \t]*$`)
+	// nodePropertyRe は org-property-re。1 がキー、2 が値。
+	nodePropertyRe   = regexp.MustCompile(`^[ \t]*:(\S+):(?:$|[ \t]+(.*?))[ \t]*$`)
 	keywordRe        = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
 	planningRe       = regexp.MustCompile(`(?i)^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
 	commentRe        = regexp.MustCompile(`^[ \t]*#(?: |$)`)
@@ -297,10 +300,11 @@ func (p *parser) propertyDrawer(pos, limit int) *Node {
 	var props []*Node
 	line := contents
 	for ; line < limit && !drawerEndRe.MatchString(p.line(line)); line = p.lineEnd(line) {
-		if !nodePropertyRe.MatchString(p.line(line)) {
+		m := nodePropertyRe.FindStringSubmatch(p.line(line))
+		if m == nil {
 			return nil
 		}
-		props = append(props, &Node{Type: TypeNodeProperty, Begin: line, End: p.lineEnd(line), ContentsBegin: -1, ContentsEnd: -1})
+		props = append(props, &Node{Type: TypeNodeProperty, Begin: line, End: p.lineEnd(line), ContentsBegin: -1, ContentsEnd: -1, Key: m[1], Value: m[2]})
 	}
 	if line >= limit {
 		return nil

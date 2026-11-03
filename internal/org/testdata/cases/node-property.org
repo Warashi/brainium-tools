@@ -1,0 +1,13 @@
+:PROPERTIES:
+:ID:       00000000-0000-0000-0000-000000000000
+:EMPTY:
+:SPACES:   
+:A:B: c
+:Trail: value with spaces   
+:END:
+#+title: foo
+
+* bar
+:PROPERTIES:
+:STATUS: draft
+:END:
