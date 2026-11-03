@@ -1,0 +1,24 @@
+foo
+#+begin_example
+,* bar
+#+end_example
+baz
+#+BEGIN_SRC sh
+echo
+#+END_SRC
+
+#+begin_quote
+qux
+
+#+begin_comment
+quux
+#+end_comment
+#+END_QUOTE
+#+begin_quote
+#+end_quote
+#+begin_note
+corge
+#+end_note
+garply
+#+begin_example
+grault

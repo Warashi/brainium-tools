@@ -24,6 +24,12 @@ const (
 	TypePlanning       Type = "planning"
 	TypeComment        Type = "comment"
 	TypeFixedWidth     Type = "fixed-width"
+
+	TypeExampleBlock Type = "example-block"
+	TypeSrcBlock     Type = "src-block"
+	TypeCommentBlock Type = "comment-block"
+	TypeQuoteBlock   Type = "quote-block"
+	TypeSpecialBlock Type = "special-block"
 )
 
 // Node は木の節点 1 つ。位置は source のバイト位置で、End は直後の空行
@@ -189,6 +195,9 @@ func (p *parser) element(pos, limit int) *Node {
 	if n := p.lines(TypeFixedWidth, fixedWidthRe, pos, limit); n != nil {
 		return n
 	}
+	if n := p.block(pos, limit); n != nil {
+		return n
+	}
 	if n := p.keyword(pos, limit); n != nil {
 		return n
 	}
@@ -199,7 +208,7 @@ func (p *parser) element(pos, limit int) *Node {
 // こで終わる(org-element-paragraph-separate に相当)。
 func (p *parser) startsElement(pos, limit int) bool {
 	line := p.line(pos)
-	return commentRe.MatchString(line) || fixedWidthRe.MatchString(line) || p.drawer(pos, limit) != nil || p.keyword(pos, limit) != nil
+	return commentRe.MatchString(line) || fixedWidthRe.MatchString(line) || p.drawer(pos, limit) != nil || p.block(pos, limit) != nil || p.keyword(pos, limit) != nil
 }
 
 // finish は中身が contentsEnd で終わる要素に、続く空行を含めた終わりを
@@ -218,6 +227,7 @@ var (
 	planningRe     = regexp.MustCompile(`(?i)^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
 	commentRe      = regexp.MustCompile(`^[ \t]*#(?: |$)`)
 	fixedWidthRe   = regexp.MustCompile(`^[ \t]*:(?: |$)`)
+	blockBeginRe   = regexp.MustCompile(`(?i)^[ \t]*#\+BEGIN_(\S+)`)
 )
 
 // drawerEnd は [pos, limit) で最初の :END: 行の位置を返す。無ければ -1。
@@ -280,6 +290,56 @@ func (p *parser) planning(pos, limit int) *Node {
 	}
 	n := &Node{Type: TypePlanning, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
 	return p.finish(n, p.lineEnd(pos), limit)
+}
+
+// blockTypes は中身を element として解析しないブロックの種類。名前は大
+// 文字で引く。ここに無い名前は special-block。
+var blockTypes = map[string]Type{
+	"EXAMPLE": TypeExampleBlock,
+	"SRC":     TypeSrcBlock,
+	"COMMENT": TypeCommentBlock,
+}
+
+// block は #+BEGIN_NAME から #+END_NAME までを解析する。#+END_NAME が
+// limit までに無ければ org はブロックとみなさないので nil を返す。
+func (p *parser) block(pos, limit int) *Node {
+	m := blockBeginRe.FindStringSubmatch(p.line(pos))
+	if m == nil {
+		return nil
+	}
+	name := strings.ToUpper(m[1])
+	contents := p.lineEnd(pos)
+	end := contents
+	for end < limit && !p.blockEnd(end, name) {
+		end = p.lineEnd(end)
+	}
+	if end >= limit {
+		return nil
+	}
+	n := &Node{Type: TypeQuoteBlock, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
+	if t, ok := blockTypes[name]; ok {
+		n.Type = t
+		return p.finish(n, p.lineEnd(end), limit)
+	}
+	if name != "QUOTE" {
+		n.Type = TypeSpecialBlock
+	}
+	if contents < end {
+		n.ContentsBegin, n.ContentsEnd = contents, end
+		n.Children = p.elements(contents, end, modeNone)
+	}
+	return p.finish(n, p.lineEnd(end), limit)
+}
+
+// blockEnd は pos の行が名前 name のブロックを閉じる #+END_NAME かを返
+// す。
+func (p *parser) blockEnd(pos int, name string) bool {
+	line := strings.TrimLeft(p.line(pos), " \t")
+	const prefix = "#+END_"
+	if len(line) < len(prefix) || !strings.EqualFold(line[:len(prefix)], prefix) {
+		return false
+	}
+	return strings.EqualFold(strings.TrimRight(line[len(prefix):], " \t"), name)
 }
 
 // lines は re に合う連続した行を、コメントや固定幅行のような 1 つの要
