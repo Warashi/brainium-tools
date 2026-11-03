@@ -44,7 +44,8 @@ type Node struct {
 	ContentsBegin int
 	ContentsEnd   int
 	PostBlank     int
-	// Key と Value は node-property のキーと値。
+	// Key と Value は node-property と keyword のキーと値。keyword の Key
+	// は org-element と同じく大文字にする。
 	Key, Value string
 	Children   []*Node
 }
@@ -213,7 +214,7 @@ func (p *parser) element(pos, limit int) *Node {
 	if n := p.block(pos, limit); n != nil {
 		return n
 	}
-	if n := p.singleLine(TypeKeyword, keywordRe, pos, limit); n != nil {
+	if n := p.keyword(pos, limit); n != nil {
 		return n
 	}
 	if n := p.singleLine(TypeHorizontalRule, horizontalRuleRe, pos, limit); n != nil {
@@ -250,8 +251,11 @@ var (
 	drawerEndRe   = regexp.MustCompile(`(?i)^[ \t]*:END:[ \t]*$`)
 	propertiesRe  = regexp.MustCompile(`(?i)^[ \t]*:PROPERTIES:[ \t]*$`)
 	// nodePropertyRe は org-property-re。1 がキー、2 が値。
-	nodePropertyRe   = regexp.MustCompile(`^[ \t]*:(\S+):(?:$|[ \t]+(.*?))[ \t]*$`)
-	keywordRe        = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
+	nodePropertyRe = regexp.MustCompile(`^[ \t]*:(\S+):(?:$|[ \t]+(.*?))[ \t]*$`)
+	keywordRe      = regexp.MustCompile(`^[ \t]*#\+\S+?:(?: |$)`)
+	// keywordKeyRe は org-element-keyword-parser のキーの読み方。キーは
+	// 最長で取るので、1 がキー、2 が値になる。
+	keywordKeyRe     = regexp.MustCompile(`^[ \t]*#\+(\S*):(.*)$`)
 	planningRe       = regexp.MustCompile(`(?i)^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
 	commentRe        = regexp.MustCompile(`^[ \t]*#(?: |$)`)
 	fixedWidthRe     = regexp.MustCompile(`^[ \t]*:(?: |$)`)
@@ -388,6 +392,22 @@ func (p *parser) singleLine(t Type, re *regexp.Regexp, pos, limit int) *Node {
 	}
 	n := &Node{Type: t, Begin: pos, ContentsBegin: -1, ContentsEnd: -1}
 	return p.finish(n, p.lineEnd(pos), limit)
+}
+
+// keyword は #+KEY: VALUE の行を解析する。
+func (p *parser) keyword(pos, limit int) *Node {
+	n := p.singleLine(TypeKeyword, keywordRe, pos, limit)
+	if n == nil {
+		return nil
+	}
+	m := keywordKeyRe.FindStringSubmatch(p.line(pos))
+	n.Key, n.Value = strings.ToUpper(m[1]), orgTrim(m[2])
+	return n
+}
+
+// orgTrim は org-trim と同じく、前後の ASCII の空白だけを除く。
+func orgTrim(s string) string {
+	return strings.Trim(s, " \f\t\n\r\v")
 }
 
 // table は | で始まる連続した行を表にする。table.el の表は扱わない。

@@ -13,7 +13,8 @@
 (setq org-element-use-cache nil)
 
 (defconst org-diff--attributes
-  '((node-property :key :value))
+  '((node-property :key :value)
+    (keyword :key :value))
   "型ごとに比べる属性。ツールが使う属性だけを挙げる。")
 
 (defun org-diff--pos (pos)

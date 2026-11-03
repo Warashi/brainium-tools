@@ -1,0 +1,6 @@
+#+title: Foo  bar
+#+FILETAGS: :a:b:
+#+Author:
+#+date:    [2026-11-03 Tue]
+  #+startup: overview
+#+key:with: colon

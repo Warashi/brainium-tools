@@ -151,7 +151,7 @@ func toDiffNode(n *Node, offsets []int) diffNode {
 // 出す。
 func attributes(n *Node) map[string]string {
 	switch n.Type {
-	case TypeNodeProperty:
+	case TypeNodeProperty, TypeKeyword:
 		return map[string]string{"key": n.Key, "value": n.Value}
 	}
 	return map[string]string{}
