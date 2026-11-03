@@ -44,6 +44,8 @@ type Node struct {
 	ContentsBegin int
 	ContentsEnd   int
 	PostBlank     int
+	// Level は headline の深さ。
+	Level int
 	// Key と Value は node-property と keyword のキーと値。keyword の Key
 	// は org-element と同じく大文字にする。
 	Key, Value string
@@ -136,7 +138,7 @@ func (p *parser) headlineContents(begin, end int, afterHeadline bool) []*Node {
 }
 
 func (p *parser) headline(begin, end int) *Node {
-	n := &Node{Type: TypeHeadline, Begin: begin, End: end, ContentsBegin: -1, ContentsEnd: -1}
+	n := &Node{Type: TypeHeadline, Begin: begin, End: end, ContentsBegin: -1, ContentsEnd: -1, Level: p.headlineLevel(begin)}
 	blanks, contents := p.skipBlank(p.lineEnd(begin), end)
 	if contents == end {
 		n.PostBlank = blanks

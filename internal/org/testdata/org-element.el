@@ -13,17 +13,24 @@
 (setq org-element-use-cache nil)
 
 (defconst org-diff--attributes
-  '((node-property :key :value)
+  '((headline :level)
+    (node-property :key :value)
     (keyword :key :value))
   "型ごとに比べる属性。ツールが使う属性だけを挙げる。")
 
 (defun org-diff--pos (pos)
   (and pos (1- pos)))
 
+;; 属性は Go 側で文字列の map として読むので、数値も文字列にして出す
+(defun org-diff--attr (value)
+  (cond ((null value) :null)
+        ((numberp value) (number-to-string value))
+        (t value)))
+
 (defun org-diff--attrs (node)
   (let (plist)
     (dolist (prop (alist-get (org-element-type node) org-diff--attributes) plist)
-      (setq plist (append plist (list prop (or (org-element-property prop node) :null)))))))
+      (setq plist (append plist (list prop (org-diff--attr (org-element-property prop node))))))))
 
 (defun org-diff--node (node)
   (let ((children (delq nil (mapcar #'org-diff--node (org-element-contents node)))))

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -151,6 +152,8 @@ func toDiffNode(n *Node, offsets []int) diffNode {
 // 出す。
 func attributes(n *Node) map[string]string {
 	switch n.Type {
+	case TypeHeadline:
+		return map[string]string{"level": strconv.Itoa(n.Level)}
 	case TypeNodeProperty, TypeKeyword:
 		return map[string]string{"key": n.Key, "value": n.Value}
 	}
