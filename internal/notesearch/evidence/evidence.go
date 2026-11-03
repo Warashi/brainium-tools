@@ -211,15 +211,7 @@ func extractMetadata(content string) Metadata {
 			}
 		}
 	}
-	if len(root.Children) == 0 || root.Children[0].Type != org.TypeSection {
-		return metadata
-	}
-	for _, n := range root.Children[0].Children {
-		if n.Type == org.TypeKeyword && n.Key == "TITLE" {
-			metadata.Title = n.Value
-			break
-		}
-	}
+	metadata.Title = org.FileTitle(root)
 	return metadata
 }
 
