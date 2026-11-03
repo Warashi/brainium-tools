@@ -15,17 +15,15 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/Warashi/brainium-tools/internal/maturity"
+	"github.com/Warashi/brainium-tools/internal/org"
 	"github.com/Warashi/brainium-tools/internal/repo"
 )
 
 const notesDir = "notes"
-
-var titleRe = regexp.MustCompile(`(?im)^#\+title:\s*(.*?)\s*$`)
 
 func main() {
 	todayFlag := flag.String("today", "", "判定に使う日付 (YYYY-MM-DD)。省略時は実行日")
@@ -78,10 +76,7 @@ func list(w io.Writer, fsys fs.FS, today time.Time) error {
 		if len(reasons) == 0 {
 			continue
 		}
-		var title string
-		if m := titleRe.FindStringSubmatch(content); m != nil {
-			title = m[1]
-		}
+		title := org.FileTitle(org.Parse(content))
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", p, strings.Join(reasons, ", "), title); err != nil {
 			return err
 		}

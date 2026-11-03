@@ -30,3 +30,17 @@ func TestList(t *testing.T) {
 		t.Errorf("got\n%s\nwant\n%s", out.String(), want)
 	}
 }
+
+func TestListTitleFollowsOrg(t *testing.T) {
+	fsys := fstest.MapFS{
+		"notes/a.org": &fstest.MapFile{Data: []byte(":PROPERTIES:\n:ID: x\n:STATUS: draft\n:END:\n" +
+			"#+begin_example\n#+title: 例\n#+end_example\n#+title: 本物\n")},
+	}
+	var out bytes.Buffer
+	if err := list(&out, fsys, time.Date(2026, 11, 27, 0, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	if want := "notes/a.org\tdraft\t本物\n"; out.String() != want {
+		t.Errorf("got %q, want %q", out.String(), want)
+	}
+}
