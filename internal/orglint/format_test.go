@@ -1,6 +1,7 @@
 package orglint
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -197,6 +198,25 @@ func TestFormat(t *testing.T) {
 		}
 		if problems := checkFormat(parseOrg("notes/a.org", []byte(once))); len(problems) != 0 {
 			t.Errorf("整形後にも違反が残る %v:\n%s", problems, once)
+		}
+	})
+}
+
+func TestUnclosedDrawer(t *testing.T) {
+	body := ":PROPERTIES:\n:ID: aaaaaaaa-0000-0000-0000-000000000001\n:END:\n#+title: tasks\n* Next\n** TODO a\n" +
+		":PROPERTIES:\n:ID:       aaaaaaaa-0000-0000-0000-000000000002\n:CAPTURED: [2026-11-02 Mon 13:51]:END:\n\n本文。\n"
+
+	t.Run("閉じていないドロワーを報告し、折り返しの違反にはしない", func(t *testing.T) {
+		got := run(t, map[string]string{"tasks.org": body})
+		want := []Problem{{Path: "tasks.org", Line: 7, Message: "ドロワーが :END: で閉じていない"}}
+		if !slices.Equal(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("-fix は閉じていないドロワーの行をつながない", func(t *testing.T) {
+		if got := format(t, body); got != body {
+			t.Errorf("got:\n%s\nwant:\n%s", got, body)
 		}
 	})
 }

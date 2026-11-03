@@ -123,6 +123,7 @@ func Run(fsys fs.FS, targets ...string) ([]Problem, error) {
 		problems = append(problems, checkPlacement(f)...)
 		problems = append(problems, checkMetadata(f)...)
 		problems = append(problems, checkMaturity(f)...)
+		problems = append(problems, checkUnclosedDrawer(f)...)
 		problems = append(problems, checkInbox(f)...)
 		problems = append(problems, checkTaskLength(f)...)
 		problems = append(problems, checkFormat(f)...)
@@ -175,6 +176,8 @@ type layout struct {
 	paras []int
 	// indents は段落の番号ごとの継続行の字下げ。
 	indents []string
+	// unclosed は閉じていないドロワーの開始行。
+	unclosed []int
 }
 
 // lineLayout は org の parser の木から行の種類と段落を決める。ドロワー
@@ -210,6 +213,13 @@ func lineLayout(src string, root *org.Node, lines []string) layout {
 			case org.TypeFixedWidth:
 				mark(c, kindFixed)
 			case org.TypeParagraph:
+				// 閉じていないドロワーは org では段落になるが、折り返すと
+				// :PROPERTIES: などの行がつながって壊れる
+				if org.IsDrawerBegin(lines[index(c.Begin)]) {
+					mark(c, kindDrawer)
+					l.unclosed = append(l.unclosed, index(c.Begin))
+					continue
+				}
 				mark(c, kindBody)
 				for i := index(c.Begin); i <= last(c); i++ {
 					l.paras[i] = len(l.indents)
@@ -335,6 +345,17 @@ func checkMetadata(f orgFile) []Problem {
 	}
 	if f.title == "" {
 		problems = append(problems, Problem{Path: f.path, Message: "#+title: を必須とする"})
+	}
+	return problems
+}
+
+// checkUnclosedDrawer は :END: で閉じていないドロワーを報告する。org は
+// それをドロワーではなく段落として読み、PROPERTIES なら見出しの
+// property も失われる。
+func checkUnclosedDrawer(f orgFile) []Problem {
+	var problems []Problem
+	for _, i := range f.layout.unclosed {
+		problems = append(problems, Problem{Path: f.path, Line: i + 1, Message: "ドロワーが :END: で閉じていない"})
 	}
 	return problems
 }

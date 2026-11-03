@@ -275,6 +275,12 @@ var (
 	blockBeginRe     = regexp.MustCompile(`(?i)^[ \t]*#\+BEGIN_(\S+)`)
 )
 
+// IsDrawerBegin は line がドロワーの開始行の形かを返す。:END: で閉じて
+// いなければ、org はドロワーにせず段落として読む。
+func IsDrawerBegin(line string) bool {
+	return drawerBeginRe.MatchString(line)
+}
+
 // drawerEnd は [pos, limit) で最初の :END: 行の位置を返す。無ければ -1。
 func (p *parser) drawerEnd(pos, limit int) int {
 	for ; pos < limit; pos = p.lineEnd(pos) {
