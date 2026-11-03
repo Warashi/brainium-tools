@@ -84,3 +84,7 @@ $ nix fmt
 ```console
 $ nix shell --inputs-from . nixpkgs#emacs-nox -c env ORG_DIFF_CORPUS=<dir> go test ./internal/org
 ```
+
+## ライセンス
+
+GPL-3.0-or-later。全文は `LICENSE`。
