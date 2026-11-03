@@ -2,6 +2,7 @@ package evidence_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Warashi/brainium-tools/internal/notesearch/evidence"
@@ -16,7 +17,8 @@ func TestHeadlinesEndSectionsEvenInsideBlockMarkers(t *testing.T) {
 				t.Fatal("missing evidence")
 			}
 			first := got.Snippets[0]
-			if !slices.Equal(first.Headings, []string{"Beta"}) || first.Text != "needle evidence" || first.StartLine != 5 {
+			// 対応の無い #+end_src は org では段落の文字列なので、根拠に続いてよい
+			if !slices.Equal(first.Headings, []string{"Beta"}) || !strings.HasPrefix(first.Text, "needle evidence") || first.StartLine != 5 {
 				t.Fatalf("headline inherited stale block ancestry: %+v", first)
 			}
 		})

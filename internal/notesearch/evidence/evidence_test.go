@@ -329,3 +329,12 @@ func TestUnclosedDrawerIsBodyAsInOrg(t *testing.T) {
 		t.Fatalf("body after an unclosed drawer was not evidence: %#v", got.Snippets)
 	}
 }
+
+func TestHashPlusLineThatIsNotKeywordIsBody(t *testing.T) {
+	t.Parallel()
+	content := "#+title: t\n#+ キーワードではない行\n"
+	got := evidence.Extract(content, "キーワードではない行")
+	if len(got.Snippets) == 0 || got.Snippets[0].Text != "#+ キーワードではない行" {
+		t.Fatalf("org paragraph starting with #+ was not evidence: %#v", got.Snippets)
+	}
+}

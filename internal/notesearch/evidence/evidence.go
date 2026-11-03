@@ -217,7 +217,7 @@ func extractMetadata(content string) Metadata {
 }
 
 // parseStructure marks the lines that can be evidence and their heading
-// ancestry. Headlines, drawers and blocks come from the org parser; block
+// ancestry. Headlines, drawers, keywords and blocks come from the org parser; block
 // contents stay selectable but are marked so the opening skips them.
 func parseStructure(content string, lines []sourceLine) {
 	// index returns the line holding byte offset off.
@@ -247,7 +247,7 @@ func parseStructure(content string, lines []sourceLine) {
 				}
 				excluded[first] = true
 				walk(c, nested)
-			case org.TypeDrawer, org.TypePropertyDrawer:
+			case org.TypeDrawer, org.TypePropertyDrawer, org.TypeKeyword:
 				for i := index(c.Begin); i <= last(c); i++ {
 					excluded[i] = true
 				}
@@ -273,7 +273,7 @@ func parseStructure(content string, lines []sourceLine) {
 			line.headings = slices.Clone(headings[i])
 			line.selectable = trimmed != ""
 			line.inBlock = true
-		case trimmed == "" || strings.HasPrefix(trimmed, "#+"):
+		case trimmed == "":
 		default:
 			line.headings = slices.Clone(headings[i])
 			line.selectable = true
