@@ -45,6 +45,29 @@ func TestFormat(t *testing.T) {
 		}
 	})
 
+	t.Run("# の直後が空白でない行は org と同じく段落の一部としてつなぐ", func(t *testing.T) {
+		got := format(t, "前の行。\n#7456 の件。\n")
+		want := "前の行。 #7456 の件。\n"
+		if got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+
+	t.Run("水平線は段落につながない", func(t *testing.T) {
+		body := "前の行。\n-----\n次の行。\n"
+		if got := format(t, body); got != body {
+			t.Errorf("got:\n%s\nwant:\n%s", got, body)
+		}
+	})
+
+	t.Run("マーカーの後の空白が複数でも継続行は org と同じくマーカーの直後 + 1 桁に揃える", func(t *testing.T) {
+		got := format(t, "-   "+strings.Repeat("あ", 50)+"\n")
+		want := "-   " + strings.Repeat("あ", 33) + "\n  " + strings.Repeat("あ", 17) + "\n"
+		if got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+
 	t.Run("固定幅行には触れない", func(t *testing.T) {
 		body := ": " + strings.Repeat("あ", 50) + "\n: 次の行\n:\n"
 		if got := format(t, body); got != body {

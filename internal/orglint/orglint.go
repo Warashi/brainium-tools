@@ -50,7 +50,7 @@ type orgFile struct {
 	ids    []string
 	links  []string
 	lines  []string
-	kinds  []lineKind
+	layout layout
 }
 
 // verbatimPat はインラインのコード表記 =…= と ~…~ の候補にマッチする。
@@ -62,14 +62,9 @@ type orgFile struct {
 const verbatimPat = `=[^=\s](?:[^=]*[^=\s])?=|~[^~\s](?:[^~]*[^~\s])?~`
 
 var (
-	headingRe     = regexp.MustCompile(`^\*+ `)
-	slugRe        = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.org$`)
-	journalRe     = regexp.MustCompile(`^journal/(\d{4})/((\d{4})-\d{2}-\d{2})\.org$`)
-	blockBeginRe  = regexp.MustCompile(`(?i)^\s*#\+begin_(\S+)`)
-	blockEndRe    = regexp.MustCompile(`(?i)^\s*#\+end_(\S+)`)
-	drawerBeginRe = regexp.MustCompile(`^\s*:[\w-]+:\s*$`)
-	drawerEndRe   = regexp.MustCompile(`(?i)^\s*:END:\s*$`)
-	verbatimRe    = regexp.MustCompile(verbatimPat)
+	slugRe     = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.org$`)
+	journalRe  = regexp.MustCompile(`^journal/(\d{4})/((\d{4})-\d{2}-\d{2})\.org$`)
+	verbatimRe = regexp.MustCompile(verbatimPat)
 )
 
 // OrgFiles は fsys 配下の検査対象になる org ファイルのパスを返す。
@@ -167,85 +162,92 @@ type lineKind int
 
 const (
 	kindOther  lineKind = iota // 空行・見出し・計画行・キーワード行・表・コメント
-	kindBody                   // 折り返しの対象になる本文行
-	kindDrawer                 // ドロワーの内側
+	kindBody                   // 折り返しの対象になる段落の行
+	kindDrawer                 // ドロワーの内側と境界行
 	kindBlock                  // ブロックの内側と境界行
 	kindFixed                  // 固定幅行(: で始まる行)
 )
 
-// fixedWidthRe は org の固定幅行。": " で始まる行と ":" だけの行が該当
-// する。ドロワーの :NAME: はコロンの直後に空白を置かないので当たらない。
-var fixedWidthRe = regexp.MustCompile(`^[ \t]*:(?: .*)?$`)
-
-// planningRe は org の計画行(org-planning-line-re)。見出しの直後の行
-// だけが計画行になり、それ以外の位置では本文として扱われる。
-var planningRe = regexp.MustCompile(`^[ \t]*(?:CLOSED|DEADLINE|SCHEDULED):`)
-
-// scanLines は各行の種類を判定する。ブロック(#+begin_ 〜 #+end_)と
-// ドロワー(:NAME: 〜 :END:)は開始行から終了行まで状態を持ち越す。固定幅
-// 行は開始・終了の記法を持たないので行ごとに判定し、連なりが結果として
-// 1 つのかたまりになる。org の厳密なパースは持ち込まない。
-func scanLines(lines []string) []lineKind {
-	kinds := make([]lineKind, len(lines))
-	openBlock := ""
-	inDrawer := false
-	for i, line := range lines {
-		switch {
-		case openBlock != "":
-			kinds[i] = kindBlock
-			if m := blockEndRe.FindStringSubmatch(line); m != nil && strings.EqualFold(m[1], openBlock) {
-				openBlock = ""
-			}
-		case blockBeginRe.MatchString(line):
-			kinds[i] = kindBlock
-			openBlock = blockBeginRe.FindStringSubmatch(line)[1]
-		case inDrawer:
-			kinds[i] = kindDrawer
-			if drawerEndRe.MatchString(line) {
-				inDrawer = false
-			}
-		case drawerBeginRe.MatchString(line) && !drawerEndRe.MatchString(line):
-			kinds[i] = kindDrawer
-			inDrawer = true
-		case i > 0 && kinds[i-1] == kindOther && headingRe.MatchString(lines[i-1]) && planningRe.MatchString(line):
-			kinds[i] = kindOther
-		case fixedWidthRe.MatchString(line):
-			kinds[i] = kindFixed
-		case isBodyLine(line):
-			kinds[i] = kindBody
-		default:
-			kinds[i] = kindOther
-		}
-	}
-	return kinds
+// layout は行の種類と、段落の行が属する段落。
+type layout struct {
+	kinds []lineKind
+	// paras は段落の行に、その段落の番号を持たせる。段落の行でなければ -1。
+	paras []int
+	// indents は段落の番号ごとの継続行の字下げ。
+	indents []string
 }
 
-// isBodyLine は折り返しの対象になる行かを返す。見出し・=#+= で始まる
-// キーワード行・コメント・表は org の fill でも折り返さない。
-func isBodyLine(line string) bool {
-	trimmed := strings.TrimSpace(line)
-	switch {
-	case trimmed == "":
-		return false
-	case headingRe.MatchString(line):
-		return false
-	case strings.HasPrefix(trimmed, "#"):
-		return false
-	case strings.HasPrefix(trimmed, "|"):
-		return false
-	default:
-		return true
+// lineLayout は org の parser の木から行の種類と段落を決める。ドロワー
+// とブロックは中の段落も折り返さない。item の中の段落の継続行は、org の
+// fill と同じく item の本文の桁(org-list-item-body-column)に揃える。
+func lineLayout(src string, root *org.Node, lines []string) layout {
+	starts := make([]int, len(lines))
+	for i, off := 0, 0; i < len(lines); i++ {
+		starts[i] = off
+		off += len(lines[i]) + 1
 	}
+	index := func(off int) int {
+		return sort.Search(len(starts), func(i int) bool { return starts[i] > off }) - 1
+	}
+	last := func(n *org.Node) int { return index(n.End-1) - n.PostBlank }
+	l := layout{kinds: make([]lineKind, len(lines)), paras: make([]int, len(lines))}
+	for i := range l.paras {
+		l.paras[i] = -1
+	}
+	mark := func(n *org.Node, k lineKind) {
+		for i := index(n.Begin); i <= last(n); i++ {
+			l.kinds[i] = k
+		}
+	}
+	var walk func(n *org.Node)
+	walk = func(n *org.Node) {
+		for _, c := range n.Children {
+			switch c.Type {
+			case org.TypeDrawer, org.TypePropertyDrawer:
+				mark(c, kindDrawer)
+			case org.TypeExampleBlock, org.TypeSrcBlock, org.TypeCommentBlock, org.TypeQuoteBlock, org.TypeSpecialBlock:
+				mark(c, kindBlock)
+			case org.TypeFixedWidth:
+				mark(c, kindFixed)
+			case org.TypeParagraph:
+				mark(c, kindBody)
+				for i := index(c.Begin); i <= last(c); i++ {
+					l.paras[i] = len(l.indents)
+				}
+				indent := leadingSpace(lines[index(c.Begin)])
+				if n.Type == org.TypeItem {
+					indent = strings.Repeat(" ", itemBodyColumn(lines[index(n.Begin)]))
+				}
+				l.indents = append(l.indents, indent)
+			default:
+				walk(c)
+			}
+		}
+	}
+	walk(root)
+	return l
+}
+
+// itemBodyColumn は item の行の本文が始まる桁を返す
+// (org-list-item-body-column)。マーカーの直後に空白 1 個分を足す。
+func itemBodyColumn(line string) int {
+	rest := strings.TrimLeft(line, " \t")
+	marker := len(line) - len(rest)
+	if i := strings.IndexAny(rest, " \t"); i >= 0 {
+		marker += i
+	} else {
+		marker += len(rest)
+	}
+	return len([]rune(line[:marker])) + 1
 }
 
 // parseOrg は ID・ファイルレベルのタイトル・id: リンクを org の parser
 // で読み、整形の検査に使う行と行種を持たせる。
 func parseOrg(p string, data []byte) orgFile {
 	lines := strings.Split(string(data), "\n")
-	kinds := scanLines(lines)
 	src := string(data)
 	root := org.Parse(src)
-	f := orgFile{path: p, src: src, root: root, lines: lines, kinds: kinds, title: org.FileTitle(root)}
+	f := orgFile{path: p, src: src, root: root, lines: lines, layout: lineLayout(src, root, lines), title: org.FileTitle(root)}
 	if drawer := org.FileProperties(root); drawer != nil {
 		f.fileID = propertyID(drawer)
 	}
@@ -401,7 +403,7 @@ func (f orgFile) lineCount(begin, end int) int {
 // ものを報告する。桁数の超過だけでなく、折り返しが早すぎて次の行の語を
 // 繰り上げられる段落も違反になる。
 func checkFormat(f orgFile) []Problem {
-	_, changed := formatLines(f.lines, f.kinds)
+	_, changed := formatLines(f.lines, f.layout)
 	var problems []Problem
 	for _, line := range changed {
 		problems = append(problems, Problem{
@@ -421,7 +423,7 @@ func checkFormat(f orgFile) []Problem {
 func checkEmphasis(f orgFile) []Problem {
 	var problems []Problem
 	for i, line := range f.lines {
-		if f.kinds[i] == kindBlock || f.kinds[i] == kindDrawer || f.kinds[i] == kindFixed {
+		if k := f.layout.kinds[i]; k == kindBlock || k == kindDrawer || k == kindFixed {
 			continue
 		}
 		if strings.HasPrefix(strings.TrimSpace(line), "#") {
