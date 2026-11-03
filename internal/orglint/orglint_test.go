@@ -406,6 +406,27 @@ func TestParseOrg(t *testing.T) {
 		}
 	})
 
+	t.Run("ドロワーの段落の id: リンクも org と同じく実体として扱う", func(t *testing.T) {
+		f := parseOrg("a.org", []byte("* 見出し\n:LOGBOOK:\n- メモ [[id:one]]\n:END:\n"))
+		if len(f.links) != 1 || f.links[0] != "one" {
+			t.Errorf("links = %v, want [one]", f.links)
+		}
+	})
+
+	t.Run("説明の無い平文の id: も org と同じく link として扱う", func(t *testing.T) {
+		f := parseOrg("a.org", []byte("参照 id:one を見る\n"))
+		if len(f.links) != 1 || f.links[0] != "one" {
+			t.Errorf("links = %v, want [one]", f.links)
+		}
+	})
+
+	t.Run("見出しと説明リストの語の id: リンクも抽出する", func(t *testing.T) {
+		f := parseOrg("a.org", []byte("* [[id:one][見出し]] :tag:\n- [[id:two]] :: 説明\n"))
+		if len(f.links) != 2 || f.links[0] != "one" || f.links[1] != "two" {
+			t.Errorf("links = %v, want [one two]", f.links)
+		}
+	})
+
 	t.Run("固定幅行の id: リンクは実体として扱わない", func(t *testing.T) {
 		f := parseOrg("a.org", []byte(": 例: [[id:one][説明]]\n"))
 		if len(f.links) != 0 {

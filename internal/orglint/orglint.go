@@ -63,7 +63,6 @@ const verbatimPat = `=[^=\s](?:[^=]*[^=\s])?=|~[^~\s](?:[^~]*[^~\s])?~`
 
 var (
 	headingRe     = regexp.MustCompile(`^\*+ `)
-	idLinkRe      = regexp.MustCompile(`\[\[id:([^\]]+)\]`)
 	slugRe        = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.org$`)
 	journalRe     = regexp.MustCompile(`^journal/(\d{4})/((\d{4})-\d{2}-\d{2})\.org$`)
 	blockBeginRe  = regexp.MustCompile(`(?i)^\s*#\+begin_(\S+)`)
@@ -239,9 +238,8 @@ func isBodyLine(line string) bool {
 	}
 }
 
-// parseOrg は ID とファイルレベルのタイトルを org の parser で読み、
-// 行単位の走査で id: リンクを抜き出し、整形の検査に使う行と行種を持た
-// せる。インラインのコード表記はリンクを拾う前に取り除く。
+// parseOrg は ID・ファイルレベルのタイトル・id: リンクを org の parser
+// で読み、整形の検査に使う行と行種を持たせる。
 func parseOrg(p string, data []byte) orgFile {
 	lines := strings.Split(string(data), "\n")
 	kinds := scanLines(lines)
@@ -252,16 +250,7 @@ func parseOrg(p string, data []byte) orgFile {
 		f.fileID = propertyID(drawer)
 	}
 	f.ids = collectIDs(root, nil)
-	for i, line := range lines {
-		switch kinds[i] {
-		case kindBlock, kindFixed, kindDrawer:
-			continue
-		}
-
-		for _, m := range idLinkRe.FindAllStringSubmatch(stripVerbatim(line), -1) {
-			f.links = append(f.links, m[1])
-		}
-	}
+	f.links = collectIDLinks(root, nil)
 	return f
 }
 
@@ -281,6 +270,21 @@ func collectIDs(n *org.Node, ids []string) []string {
 	return ids
 }
 
+// collectIDLinks は n 以下の id: の link の行き先を links に足して返す。
+// 見出しの title と説明リストの語の link も拾う。
+func collectIDLinks(n *org.Node, links []string) []string {
+	if n.Type == org.TypeLink && n.LinkType == "id" {
+		links = append(links, n.Path)
+	}
+	for _, c := range n.Secondary {
+		links = collectIDLinks(c, links)
+	}
+	for _, c := range n.Children {
+		links = collectIDLinks(c, links)
+	}
+	return links
+}
+
 // propertyID は PROPERTIES ドロワーの最初の :ID: の値を返す。無ければ
 // 空文字列。
 func propertyID(drawer *org.Node) string {
@@ -290,23 +294,6 @@ func propertyID(drawer *org.Node) string {
 		}
 	}
 	return ""
-}
-
-// stripVerbatim はコード表記として組まれる範囲を空白 1 個に置き換える。
-// リンクや ID の記法をプレースホルダとしてコード表記で書いたものを
-// 実体と取り違えないようにする。前後の文字の条件を満たさず組まれない
-// ものは残す。Emacs がリンクとして扱うものは orglint も検査する。
-func stripVerbatim(line string) string {
-	spans, _ := emphasisSpans(line)
-	var b strings.Builder
-	prev := 0
-	for _, s := range spans {
-		b.WriteString(line[prev:s[0]])
-		b.WriteString(" ")
-		prev = s[1]
-	}
-	b.WriteString(line[prev:])
-	return b.String()
 }
 
 func checkPlacement(f orgFile) []Problem {
