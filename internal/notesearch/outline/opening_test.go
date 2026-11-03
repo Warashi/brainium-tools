@@ -46,8 +46,18 @@ func TestOpening(t *testing.T) {
 			want:   "前のノートを受けて https://example.com を読んだ。",
 		},
 		{
-			name:   "対応の無い :END: をドロワーの始まりとみなさない",
+			name:   "対応の無い :END: は org と同じく段落の文字列にする",
 			source: "#+title: t\n:END:\n説明。\n",
+			want:   ":END:説明。",
+		},
+		{
+			name:   "リストは段落ではないので飛ばす",
+			source: "#+title: t\n- 項目。\n\n説明。\n",
+			want:   "説明。",
+		},
+		{
+			name:   "ドロワーの中の段落は飛ばす",
+			source: "#+title: t\n:NOTE:\n中身。\n:END:\n説明。\n",
 			want:   "説明。",
 		},
 		{

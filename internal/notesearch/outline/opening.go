@@ -1,57 +1,64 @@
 package outline
 
 import (
-	"regexp"
 	"strings"
 	"unicode/utf8"
-)
 
-// linkRe は org のリンク。説明があれば 2 番目、無ければ 1 番目を見せる。
-var linkRe = regexp.MustCompile(`\[\[([^\]]*)\](?:\[([^\]]*)\])?\]`)
+	"github.com/Warashi/brainium-tools/internal/org"
+)
 
 // DefaultOpeningBytes は冒頭の文の既定の上限。長い文は手掛かりとして読
 // み切れない
 const DefaultOpeningBytes = 240
 
 // Opening は最初の見出しより前にある最初の段落から、最初の文を返す。
+// 段落は org の parser に従い、ドロワーやリストの中の段落は使わない。
 //
 // PageIndex は短い節には要約の代わりに本文そのものを載せる。ここでは LLM
 // で要約を作らないので、ノートが冒頭に書く目的の 1 文を手掛かりとして
 // 原文から返す。文が maxBytes を超えたら文字の境界で切り、… を足す。
 // … は maxBytes に数えない。
 func Opening(source string, maxBytes int) string {
-	var paragraph []string
-	inDrawer, inBlock := false, false
-	for _, line := range strings.Split(source, "\n") {
-		trimmed := strings.TrimSpace(strings.TrimSuffix(line, "\r"))
-		if _, _, ok := heading(line); ok {
-			break
-		}
-		lower := strings.ToLower(trimmed)
-		switch {
-		case inBlock:
-			inBlock = !strings.HasPrefix(lower, "#+end_")
-			continue
-		case strings.HasPrefix(lower, "#+begin_"):
-			inBlock = true
-			continue
-		case inDrawer:
-			inDrawer = !strings.EqualFold(trimmed, ":END:")
-			continue
-		case len(trimmed) > 2 && trimmed[0] == ':' && trimmed[len(trimmed)-1] == ':':
-			inDrawer = !strings.EqualFold(trimmed, ":END:")
-			continue
-		case strings.HasPrefix(trimmed, "#"):
-			continue
-		case trimmed == "":
-			if len(paragraph) > 0 {
-				return firstSentence(paragraph, maxBytes)
-			}
-			continue
-		}
-		paragraph = append(paragraph, trimmed)
+	root := org.Parse(source)
+	if len(root.Children) == 0 || root.Children[0].Type != org.TypeSection {
+		return ""
 	}
-	return firstSentence(paragraph, maxBytes)
+	for _, n := range root.Children[0].Children {
+		if n.Type != org.TypeParagraph {
+			continue
+		}
+		var lines []string
+		for _, line := range strings.Split(linkTexts(source, n), "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				lines = append(lines, line)
+			}
+		}
+		return firstSentence(lines, maxBytes)
+	}
+	return ""
+}
+
+// linkTexts は段落の中身を、括弧の link を Emacs での見え方と同じく説明
+// 文(無ければ行き先)に置き換えて返す。記法を残すと、手掛かりにならな
+// い ID で上限を使い切る。
+func linkTexts(source string, paragraph *org.Node) string {
+	var b strings.Builder
+	pos := paragraph.ContentsBegin
+	for _, l := range org.Links(paragraph) {
+		link := strings.TrimRight(source[l.Begin:l.End], " \t")
+		if !strings.HasPrefix(link, "[[") {
+			continue
+		}
+		b.WriteString(source[pos:l.Begin])
+		if l.ContentsBegin >= 0 {
+			b.WriteString(source[l.ContentsBegin:l.ContentsEnd])
+		} else {
+			b.WriteString(link[2 : len(link)-2])
+		}
+		pos = l.Begin + len(link)
+	}
+	b.WriteString(source[pos:paragraph.ContentsEnd])
+	return b.String()
 }
 
 func firstSentence(lines []string, maxBytes int) string {
@@ -67,15 +74,7 @@ func firstSentence(lines []string, maxBytes int) string {
 		}
 		b.WriteString(line)
 	}
-	// リンクの記法は Emacs では隠れて説明文だけが見える。記法を残すと
-	// 手掛かりにならない ID で上限を使い切る
-	text := linkRe.ReplaceAllStringFunc(b.String(), func(link string) string {
-		m := linkRe.FindStringSubmatch(link)
-		if m[2] != "" {
-			return m[2]
-		}
-		return m[1]
-	})
+	text := b.String()
 	if i := strings.Index(text, "。"); i >= 0 {
 		text = text[:i+len("。")]
 	} else if i := strings.Index(text, ". "); i >= 0 {
@@ -89,14 +88,4 @@ func firstSentence(lines []string, maxBytes int) string {
 		cut--
 	}
 	return text[:cut] + "…"
-}
-
-func heading(line string) (level int, title string, ok bool) {
-	for level < len(line) && line[level] == '*' {
-		level++
-	}
-	if level == 0 || level >= len(line) || (line[level] != ' ' && line[level] != '\t') {
-		return 0, "", false
-	}
-	return level, strings.TrimSpace(line[level:]), true
 }
