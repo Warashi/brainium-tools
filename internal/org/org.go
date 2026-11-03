@@ -408,6 +408,7 @@ func (p *parser) tableRow(pos int) *Node {
 	if !tableRuleRe.MatchString(line) {
 		n.ContentsBegin = pos + strings.IndexByte(line, '|') + 1
 		n.ContentsEnd = pos + len(strings.TrimRight(line, " \t"))
+		n.Children = p.objects(n.ContentsBegin, n.ContentsEnd, []Type{TypeTableCell})
 	}
 	return n
 }

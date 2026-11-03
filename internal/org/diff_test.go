@@ -92,7 +92,7 @@ func compareWithOrgElement(t *testing.T, emacs, granularity string, files []stri
 // objectTypes は Parse が作る object の種類。element の粒度で比べると
 // きに木から除く。
 var objectTypes = map[Type]bool{TypeVerbatim: true, TypeCode: true, TypeTimestamp: true, TypeLink: true, TypeBold: true, TypeLatexFragment: true,
-	TypeSubscript: true, TypeSuperscript: true}
+	TypeSubscript: true, TypeSuperscript: true, TypeTableCell: true}
 
 func dropObjects(n *Node) {
 	var children []*Node

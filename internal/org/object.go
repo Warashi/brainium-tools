@@ -23,6 +23,7 @@ var (
 var objectRestrictions = map[Type][]Type{
 	TypeBold:        standardSet,
 	TypeLink:        minimalSet,
+	TypeTableCell:   tableCellSet,
 	TypeSubscript:   standardSet,
 	TypeSuperscript: standardSet,
 }
@@ -60,6 +61,9 @@ func (p *parser) objects(begin, end int, restriction []Type) []*Node {
 // org-element--object-lex と同じく pos の文字で選ぶ。
 func (s objectSpan) object(pos int, restriction []Type) *Node {
 	allowed := func(t Type) bool { return slices.Contains(restriction, t) }
+	if allowed(TypeTableCell) {
+		return s.tableCell(pos)
+	}
 	switch s.p.src[pos] {
 	case '*':
 		if allowed(TypeBold) {
