@@ -49,6 +49,8 @@ type Node struct {
 	// Key と Value は node-property と keyword のキーと値。keyword の Key
 	// は org-element と同じく大文字にする。
 	Key, Value string
+	// LinkType と Path は link の種類と行き先。
+	LinkType, Path string
 	// Secondary は headline の title と item の tag の object。org-element
 	// と同じく Children には入れない。
 	Secondary []*Node

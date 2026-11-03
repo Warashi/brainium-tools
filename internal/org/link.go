@@ -13,10 +13,22 @@ const linkTypes = `bbdb|bibtex|docview|doi|elisp|eww|file\+emacs|file\+sys|file|
 
 var (
 	// linkBracketRe は org-link-bracket-re。説明は改行も含めて最短で取る。
-	linkBracketRe = regexp.MustCompile(`^\[\[(?:[^\]\[\\]|\\(?:\\\\)*[\]\[]|\\+[^\]\[])+\](?:\[((?s:.)+?)\])?\]`)
+	linkBracketRe = regexp.MustCompile(`^\[\[((?:[^\]\[\\]|\\(?:\\\\)*[\]\[]|\\+[^\]\[])+)\](?:\[((?s:.)+?)\])?\]`)
 	// org は型の大文字と小文字を区別しない
 	linkAngleRe = regexp.MustCompile(`(?i)^<(?:` + linkTypes + `):[^>\n]*(?:\n[ \t]*[^> \t\n][^>\n]*)*>`)
 	linkPlainRe = regexp.MustCompile(`(?i)^(?:` + linkTypes + `):`)
+	// linkTypeRe は org-link-types-re。括弧の link の行き先から型を取る。
+	linkTypeRe = regexp.MustCompile(`(?i)^(` + linkTypes + `):`)
+	// linkEscapeRe は org-link-unescape が半分に減らす \ の並び。
+	linkEscapeRe = regexp.MustCompile(`(\\+)(?:$|[\[\]])`)
+	// linkNewlineRe は括弧と山括弧の link の行き先の中の改行と字下げ。
+	linkNewlineRe = regexp.MustCompile(`[ \t]*\n[ \t]*`)
+	// fileTypeRe・searchRe・fileURIRe は file の link の型、path から除く
+	// 検索語、file:/// の重なった / を見分ける。org は file の型の大文字
+	// と小文字を区別しない
+	fileTypeRe = regexp.MustCompile(`(?i)^file(?:\+.+)?$`)
+	searchRe   = regexp.MustCompile(`::.*$`)
+	fileURIRe  = regexp.MustCompile(`^///*(.:)?/`)
 )
 
 // link は pos から始まる link を、括弧・平文・山括弧の順に解析する
@@ -27,18 +39,51 @@ func (s objectSpan) link(pos int) *Node {
 	var end int
 	if m := linkBracketRe.FindStringSubmatchIndex(text); m != nil {
 		end = pos + m[1]
-		if m[2] >= 0 {
-			n.ContentsBegin, n.ContentsEnd = pos+m[2], pos+m[3]
+		if m[4] >= 0 {
+			n.ContentsBegin, n.ContentsEnd = pos+m[4], pos+m[5]
 		}
+		n.LinkType, n.Path = bracketLinkTarget(text[m[2]:m[3]])
 	} else if e := s.plainLinkEnd(pos); e >= 0 {
 		end = e
+		n.LinkType, n.Path, _ = strings.Cut(s.p.src[pos:end], ":")
 	} else if m := linkAngleRe.FindStringIndex(text); m != nil {
 		end = pos + m[1]
+		var path string
+		n.LinkType, path, _ = strings.Cut(text[1:m[1]-1], ":")
+		n.Path = linkNewlineRe.ReplaceAllString(path, "")
 	} else {
 		return nil
 	}
+	if fileTypeRe.MatchString(n.LinkType) {
+		n.LinkType = "file"
+		n.Path = fileURIRe.ReplaceAllString(searchRe.ReplaceAllString(n.Path, ""), "$1/")
+	}
 	n.PostBlank, n.End = s.skipSpaces(end)
 	return n
+}
+
+// bracketLinkTarget は括弧の link の行き先 raw から型と path を決める
+// (org-element-link-parser)。link の略語(#+LINK)は扱わない。
+func bracketLinkTarget(raw string) (string, string) {
+	raw = linkNewlineRe.ReplaceAllString(raw, " ")
+	raw = linkEscapeRe.ReplaceAllStringFunc(raw, func(m string) string {
+		backslashes := len(m) - len(strings.TrimLeft(m, "\\"))
+		return strings.Repeat("\\", backslashes/2) + m[backslashes:]
+	})
+	switch {
+	case strings.HasPrefix(raw, "/") || raw == "~" || strings.HasPrefix(raw, "~/") ||
+		strings.HasPrefix(raw, "./") || strings.HasPrefix(raw, "../"):
+		return "file", raw
+	case linkTypeRe.MatchString(raw):
+		m := linkTypeRe.FindStringSubmatchIndex(raw)
+		return raw[m[2]:m[3]], raw[m[1]:]
+	case strings.HasPrefix(raw, "(") && strings.HasSuffix(raw, ")"):
+		return "coderef", raw[1 : len(raw)-1]
+	case strings.HasPrefix(raw, "#"):
+		return "custom-id", raw[1:]
+	default:
+		return "fuzzy", raw
+	}
 }
 
 // plainLinkEnd は pos から始まる平文の link の終わりを返す。無ければ -1。

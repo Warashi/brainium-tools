@@ -14,6 +14,7 @@
 
 (defconst org-diff--attributes
   '((headline :level)
+    (link :type :path)
     (node-property :key :value)
     (keyword :key :value))
   "型ごとに比べる属性。ツールが使う属性だけを挙げる。")

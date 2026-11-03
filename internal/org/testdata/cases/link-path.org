@@ -1,0 +1,7 @@
+[[ID:upper]] [[/abs/path]] [[./rel.org]] [[../up.org]] [[~/home.org]]
+[[(coderef)]] [[#custom-id]] [[見出し]] [[file+emacs:a.org::*search]]
+[[file:///x/y.org]] [[file:a.org::b::c]] [[id:a\]b]] [[id:a\\b]] [[id:x\]]
+[[id:wrapped
+  line]] <https://a.com/b
+  c> <file:x.org::y> Https://case.com FILE:z.org
+[[https:x]] [[unknown:x]] [[mailto:a@b.c][m]] shell:ls

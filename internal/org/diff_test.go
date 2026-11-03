@@ -159,6 +159,8 @@ func attributes(n *Node) map[string]string {
 	switch n.Type {
 	case TypeHeadline:
 		return map[string]string{"level": strconv.Itoa(n.Level)}
+	case TypeLink:
+		return map[string]string{"type": n.LinkType, "path": n.Path}
 	case TypeNodeProperty, TypeKeyword:
 		return map[string]string{"key": n.Key, "value": n.Value}
 	}
