@@ -350,6 +350,20 @@ func TestParseOrg(t *testing.T) {
 		}
 	})
 
+	t.Run("先頭のドロワーが PROPERTIES でなければファイルレベル ID なしとする", func(t *testing.T) {
+		f := parseOrg("a.org", []byte(":LOGBOOK:\n:ID: logbook-id\n:END:\n#+title: 題\n"))
+		if f.fileID != "" {
+			t.Errorf("fileID = %q, want empty", f.fileID)
+		}
+	})
+
+	t.Run("見出しより後の #+title: はファイルのタイトルとみなさない", func(t *testing.T) {
+		f := parseOrg("a.org", []byte("* 見出し\n#+title: 題\n"))
+		if f.title != "" {
+			t.Errorf("title = %q, want empty", f.title)
+		}
+	})
+
 	t.Run("説明付きと説明なし両方の id: リンクを抽出する", func(t *testing.T) {
 		f := parseOrg("a.org", []byte("[[id:one][説明]] と [[id:two]]\n"))
 		if len(f.links) != 2 || f.links[0] != "one" || f.links[1] != "two" {

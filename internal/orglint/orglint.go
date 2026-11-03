@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Warashi/brainium-tools/internal/org"
 )
 
 // fillColumn は本文を折り返す桁数。Emacs の fill-column に合わせる。
@@ -58,7 +60,6 @@ type orgFile struct {
 const verbatimPat = `=[^=\s](?:[^=]*[^=\s])?=|~[^~\s](?:[^~]*[^~\s])?~`
 
 var (
-	titleRe       = regexp.MustCompile(`(?i)^#\+title:\s*(\S.*?)\s*$`)
 	idPropRe      = regexp.MustCompile(`(?i)^\s*:ID:\s*(\S+)\s*$`)
 	capturedRe    = regexp.MustCompile(`(?i)^\s*:CAPTURED:\s*\S`)
 	propBeginRe   = regexp.MustCompile(`(?i)^\s*:PROPERTIES:\s*$`)
@@ -240,34 +241,33 @@ func isBodyLine(line string) bool {
 	}
 }
 
-// parseOrg は行単位の走査で ID・タイトル・id: リンクを抜き出し、整形の
-// 検査に使う行と行種を持たせる。インラインのコード表記はリンクを拾う
-// 前に取り除く。
+// parseOrg はファイルレベルの ID とタイトルを org の parser で読み、
+// 行単位の走査で ID と id: リンクを抜き出し、整形の検査に使う行と行種を
+// 持たせる。インラインのコード表記はリンクを拾う前に取り除く。
 func parseOrg(p string, data []byte) orgFile {
 	lines := strings.Split(string(data), "\n")
 	kinds := scanLines(lines)
-	f := orgFile{path: p, lines: lines, kinds: kinds}
-	seenHeading := false
+	root := org.Parse(string(data))
+	f := orgFile{path: p, lines: lines, kinds: kinds, title: org.FileTitle(root)}
+	if drawer := org.FileProperties(root); drawer != nil {
+		for _, n := range drawer.Children {
+			if strings.EqualFold(n.Key, "ID") {
+				f.fileID = n.Value
+				break
+			}
+		}
+	}
 	for i, line := range lines {
 		switch kinds[i] {
 		case kindBlock, kindFixed:
 			continue
 		case kindDrawer:
 			if m := idPropRe.FindStringSubmatch(line); m != nil {
-				if !seenHeading && f.fileID == "" {
-					f.fileID = m[1]
-				}
 				f.ids = append(f.ids, m[1])
 			}
 			continue
 		}
 
-		if headingRe.MatchString(line) {
-			seenHeading = true
-		}
-		if m := titleRe.FindStringSubmatch(line); m != nil && f.title == "" {
-			f.title = m[1]
-		}
 		for _, m := range idLinkRe.FindAllStringSubmatch(stripVerbatim(line), -1) {
 			f.links = append(f.links, m[1])
 		}
