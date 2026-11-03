@@ -250,7 +250,11 @@ func parseOrg(p string, data []byte) orgFile {
 		f.fileID = propertyID(drawer)
 	}
 	f.ids = collectIDs(root, nil)
-	f.links = collectIDLinks(root, nil)
+	for _, l := range org.Links(root) {
+		if l.LinkType == "id" {
+			f.links = append(f.links, l.Path)
+		}
+	}
 	return f
 }
 
@@ -268,21 +272,6 @@ func collectIDs(n *org.Node, ids []string) []string {
 		ids = collectIDs(c, ids)
 	}
 	return ids
-}
-
-// collectIDLinks は n 以下の id: の link の行き先を links に足して返す。
-// 見出しの title と説明リストの語の link も拾う。
-func collectIDLinks(n *org.Node, links []string) []string {
-	if n.Type == org.TypeLink && n.LinkType == "id" {
-		links = append(links, n.Path)
-	}
-	for _, c := range n.Secondary {
-		links = collectIDLinks(c, links)
-	}
-	for _, c := range n.Children {
-		links = collectIDLinks(c, links)
-	}
-	return links
 }
 
 // propertyID は PROPERTIES ドロワーの最初の :ID: の値を返す。無ければ

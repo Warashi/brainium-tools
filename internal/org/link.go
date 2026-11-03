@@ -166,3 +166,23 @@ func isLinkPathChar(r rune) bool {
 func isASCIIPunct(r rune) bool {
 	return strings.ContainsRune("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~", r)
 }
+
+// Links は n 以下の link を文書の順に返す。見出しの title と説明リスト
+// の語の link も含める。
+func Links(n *Node) []*Node {
+	var links []*Node
+	var walk func(n *Node)
+	walk = func(n *Node) {
+		if n.Type == TypeLink {
+			links = append(links, n)
+		}
+		for _, c := range n.Secondary {
+			walk(c)
+		}
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	walk(n)
+	return links
+}
