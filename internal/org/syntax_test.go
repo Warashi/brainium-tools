@@ -19,6 +19,7 @@ func TestSyntaxMatchesEmacs(t *testing.T) {
 		"word":               wordRanges,
 		"latin_word":         latinWordRanges,
 		"latex_fragment_end": latexFragmentEndRanges,
+		"alnum":              alnumRanges,
 	} {
 		if !slices.Equal(got, want[name]) {
 			t.Errorf("%s の表が Emacs と違う。testdata/syntax.el の出力で作り直す", name)

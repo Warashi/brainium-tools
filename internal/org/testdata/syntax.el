@@ -4,7 +4,7 @@
 ;; 標準出力に {"space": [[LO, HI], ...], "word": ..., ...} を出す。
 ;; latin_word は、直後のラテン文字を単語の始まり(\<)にしない文字。
 ;; latex_fragment_end は、$ で囲む LaTeX の断片の直後に置ける文字の
-;; うち構文の分類で決まるもの。
+;; うち構文の分類で決まるもの。alnum は正規表現の [[:alnum:]]。
 
 (require 'org)
 (require 'json)
@@ -30,4 +30,6 @@
                 :latex_fragment_end (syntax--ranges
                                      (lambda (c)
                                        (string-match-p "\\`\\(?:\\s.\\|\\s-\\|\\s(\\|\\s)\\|\\s\"\\)"
-                                                       (string c))))))))
+                                                       (string c))))
+                :alnum (syntax--ranges
+                        (lambda (c) (string-match-p "[[:alnum:]]" (string c))))))))
