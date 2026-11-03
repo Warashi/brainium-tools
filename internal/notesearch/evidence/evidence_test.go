@@ -277,7 +277,8 @@ func TestMalformedLeadingDrawerDoesNotConsumeHeadingProperties(t *testing.T) {
 	if got.Metadata != (evidence.Metadata{Title: "Not valid metadata"}) {
 		t.Fatalf("malformed metadata leaked: %#v", got.Metadata)
 	}
-	if len(got.Snippets) != 1 || got.Snippets[0].Text != "body" ||
+	// 閉じていないドロワーは org では段落なので、冒頭の文脈には出てよい
+	if len(got.Snippets) == 0 || got.Snippets[0].Text != "body" ||
 		strings.Join(got.Snippets[0].Headings, "/") != "Node" {
 		t.Fatalf("body lost after malformed drawer: %#v", got.Snippets)
 	}
@@ -317,5 +318,14 @@ func TestParseMetadataMatchesExtract(t *testing.T) {
 	source := ":PROPERTIES:\n:ID: x\n:STATUS: stable\n:VERIFIED: [2026-09-01 Tue]\n:END:\n#+title: 題\n本文\n* 見出し\n"
 	if got, want := evidence.ParseMetadata(source), evidence.Extract(source, "本文").Metadata; got != want {
 		t.Errorf("ParseMetadata = %+v, want %+v", got, want)
+	}
+}
+
+func TestUnclosedDrawerIsBodyAsInOrg(t *testing.T) {
+	t.Parallel()
+	content := "#+title: t\n:NOTE:\n閉じていないドロワーの後の本文。\n* Node\nbody\n"
+	got := evidence.Extract(content, "閉じていないドロワー")
+	if len(got.Snippets) == 0 || !strings.Contains(got.Snippets[0].Text, "閉じていないドロワーの後の本文。") {
+		t.Fatalf("body after an unclosed drawer was not evidence: %#v", got.Snippets)
 	}
 }

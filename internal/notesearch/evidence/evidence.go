@@ -4,6 +4,7 @@ package evidence
 import (
 	"cmp"
 	"slices"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -81,7 +82,7 @@ func Extract(content, query string) Document {
 
 	lines := splitLines(content)
 	doc := Document{Metadata: extractMetadata(content)}
-	parseStructure(lines)
+	parseStructure(content, lines)
 	passages := makePassages(lines)
 	if len(passages) == 0 {
 		return doc
@@ -215,55 +216,68 @@ func extractMetadata(content string) Metadata {
 	return metadata
 }
 
-func parseStructure(lines []sourceLine) {
-	var headings []string
-	var blockType string
-	inDrawer := false
+// parseStructure marks the lines that can be evidence and their heading
+// ancestry. Headlines, drawers and blocks come from the org parser; block
+// contents stay selectable but are marked so the opening skips them.
+func parseStructure(content string, lines []sourceLine) {
+	// index returns the line holding byte offset off.
+	index := func(off int) int {
+		return sort.Search(len(lines), func(i int) bool { return lines[i].start > off }) - 1
+	}
+	// last returns the last line of n before its trailing blank lines.
+	last := func(n *org.Node) int { return index(n.End-1) - n.PostBlank }
+	excluded := make([]bool, len(lines))
+	inBlock := make([]bool, len(lines))
+	headings := make([][]string, len(lines))
+
+	var walk func(n *org.Node, ancestry []string)
+	walk = func(n *org.Node, ancestry []string) {
+		for _, c := range n.Children {
+			switch c.Type {
+			case org.TypeHeadline:
+				first := index(c.Begin)
+				title := strings.TrimSpace(strings.SplitN(content[c.Begin+c.Level:], "\n", 2)[0])
+				nested := slices.Clone(ancestry[:min(len(ancestry), c.Level-1)])
+				for len(nested) < c.Level-1 {
+					nested = append(nested, "")
+				}
+				nested = append(nested, title)
+				for i := first; i <= index(c.End-1); i++ {
+					headings[i] = nested
+				}
+				excluded[first] = true
+				walk(c, nested)
+			case org.TypeDrawer, org.TypePropertyDrawer:
+				for i := index(c.Begin); i <= last(c); i++ {
+					excluded[i] = true
+				}
+			case org.TypeExampleBlock, org.TypeSrcBlock, org.TypeCommentBlock, org.TypeQuoteBlock, org.TypeSpecialBlock:
+				begin, end := index(c.Begin), last(c)
+				excluded[begin], excluded[end] = true, true
+				for i := begin + 1; i < end; i++ {
+					inBlock[i] = true
+				}
+			default:
+				walk(c, ancestry)
+			}
+		}
+	}
+	walk(org.Parse(content), nil)
+
 	for i := range lines {
 		line := &lines[i]
 		trimmed := strings.TrimSpace(line.text)
-
-		// Org blocks cannot span a headline, even when an end marker follows it.
-		if level, title, ok := heading(line.text); ok {
-			blockType, inDrawer = "", false
-			if level <= len(headings) {
-				headings = headings[:level-1]
-			}
-			for len(headings) < level-1 {
-				headings = append(headings, "")
-			}
-			headings = append(headings, title)
-			continue
-		}
-		if blockType != "" {
-			if endType, ok := blockEndType(trimmed); ok && endType == blockType {
-				blockType = ""
-				continue
-			}
-			line.headings = slices.Clone(headings)
+		switch {
+		case excluded[i]:
+		case inBlock[i]:
+			line.headings = slices.Clone(headings[i])
 			line.selectable = trimmed != ""
 			line.inBlock = true
-			continue
+		case trimmed == "" || strings.HasPrefix(trimmed, "#+"):
+		default:
+			line.headings = slices.Clone(headings[i])
+			line.selectable = true
 		}
-		if beginType, ok := blockBeginType(trimmed); ok {
-			blockType = beginType
-			continue
-		}
-		if inDrawer {
-			if strings.EqualFold(trimmed, ":END:") {
-				inDrawer = false
-			}
-			continue
-		}
-		if isDrawerBegin(trimmed) {
-			inDrawer = true
-			continue
-		}
-		if trimmed == "" || strings.HasPrefix(trimmed, "#+") {
-			continue
-		}
-		line.headings = slices.Clone(headings)
-		line.selectable = true
 	}
 }
 
@@ -396,56 +410,6 @@ func uniqueTokens(text string) map[string]struct{} {
 		out[token] = struct{}{}
 	}
 	return out
-}
-
-func heading(line string) (level int, title string, ok bool) {
-	for level < len(line) && line[level] == '*' {
-		level++
-	}
-	if level == 0 || level >= len(line) || (line[level] != ' ' && line[level] != '\t') {
-		return 0, "", false
-	}
-	return level, strings.TrimSpace(line[level:]), true
-}
-
-func blockBeginType(line string) (string, bool) {
-	const prefix = "#+begin_"
-	lower := strings.ToLower(line)
-	if !strings.HasPrefix(lower, prefix) {
-		return "", false
-	}
-	name := strings.Fields(lower[len(prefix):])
-	if len(name) == 0 {
-		return "", false
-	}
-	return name[0], true
-}
-
-func blockEndType(line string) (string, bool) {
-	const prefix = "#+end_"
-	lower := strings.ToLower(line)
-	if !strings.HasPrefix(lower, prefix) {
-		return "", false
-	}
-	name := strings.TrimSpace(lower[len(prefix):])
-	if name == "" || strings.ContainsAny(name, " \t") {
-		return "", false
-	}
-	return name, true
-}
-
-func isDrawerBegin(line string) bool {
-	if len(line) < 3 || line[0] != ':' || line[len(line)-1] != ':' ||
-		strings.EqualFold(line, ":END:") {
-		return false
-	}
-	for _, r := range line[1 : len(line)-1] {
-		if !(r == '_' || r == '-' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' ||
-			r >= '0' && r <= '9') {
-			return false
-		}
-	}
-	return true
 }
 
 func overlaps(a, b passage) bool {
