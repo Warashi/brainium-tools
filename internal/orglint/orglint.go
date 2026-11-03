@@ -43,6 +43,8 @@ var skipDirs = map[string]bool{
 
 type orgFile struct {
 	path   string
+	src    string
+	root   *org.Node
 	title  string
 	fileID string
 	ids    []string
@@ -61,8 +63,6 @@ const verbatimPat = `=[^=\s](?:[^=]*[^=\s])?=|~[^~\s](?:[^~]*[^~\s])?~`
 
 var (
 	idPropRe      = regexp.MustCompile(`(?i)^\s*:ID:\s*(\S+)\s*$`)
-	capturedRe    = regexp.MustCompile(`(?i)^\s*:CAPTURED:\s*\S`)
-	propBeginRe   = regexp.MustCompile(`(?i)^\s*:PROPERTIES:\s*$`)
 	headingRe     = regexp.MustCompile(`^\*+ `)
 	topHeadingRe  = regexp.MustCompile(`^\* `)
 	idLinkRe      = regexp.MustCompile(`\[\[id:([^\]]+)\]`)
@@ -247,8 +247,9 @@ func isBodyLine(line string) bool {
 func parseOrg(p string, data []byte) orgFile {
 	lines := strings.Split(string(data), "\n")
 	kinds := scanLines(lines)
-	root := org.Parse(string(data))
-	f := orgFile{path: p, lines: lines, kinds: kinds, title: org.FileTitle(root)}
+	src := string(data)
+	root := org.Parse(src)
+	f := orgFile{path: p, src: src, root: root, lines: lines, kinds: kinds, title: org.FileTitle(root)}
 	if drawer := org.FileProperties(root); drawer != nil {
 		for _, n := range drawer.Children {
 			if strings.EqualFold(n.Key, "ID") {
@@ -352,38 +353,46 @@ func checkInbox(f orgFile) []Problem {
 		return nil
 	}
 	var problems []Problem
-	for i, line := range f.lines {
-		if f.kinds[i] == kindBlock || !topHeadingRe.MatchString(line) {
+	for _, h := range f.root.Children {
+		if h.Type != org.TypeHeadline || h.Level != 1 {
 			continue
 		}
-		hasID, hasCaptured := headingProps(f, i)
+		hasID, hasCaptured := headlineProps(h)
+		line := f.lineAt(h.Begin)
 		if !hasID {
-			problems = append(problems, Problem{Path: f.path, Line: i + 1, Message: "capture の見出しに :ID: を必須とする"})
+			problems = append(problems, Problem{Path: f.path, Line: line, Message: "capture の見出しに :ID: を必須とする"})
 		}
 		if !hasCaptured {
-			problems = append(problems, Problem{Path: f.path, Line: i + 1, Message: "capture の見出しに :CAPTURED: を必須とする"})
+			problems = append(problems, Problem{Path: f.path, Line: line, Message: "capture の見出しに :CAPTURED: を必須とする"})
 		}
 	}
 	return problems
 }
 
-// headingProps は heading 行の直後に置かれた PROPERTIES ドロワーに
-// :ID: と :CAPTURED: があるかを返す。見出しと離れたドロワーは org 自身が
-// 見出しの property として扱わないので、直後にあることも合わせて見る。
-func headingProps(f orgFile, heading int) (hasID, hasCaptured bool) {
-	i := heading + 1
-	if i >= len(f.lines) || !propBeginRe.MatchString(f.lines[i]) {
+// headlineProps は見出しの PROPERTIES ドロワーに値のある :ID: と
+// :CAPTURED: があるかを返す。
+func headlineProps(h *org.Node) (hasID, hasCaptured bool) {
+	drawer := org.HeadlineProperties(h)
+	if drawer == nil {
 		return false, false
 	}
-	for i++; i < len(f.lines) && !drawerEndRe.MatchString(f.lines[i]); i++ {
-		switch {
-		case idPropRe.MatchString(f.lines[i]):
+	for _, n := range drawer.Children {
+		if n.Value == "" {
+			continue
+		}
+		switch strings.ToUpper(n.Key) {
+		case "ID":
 			hasID = true
-		case capturedRe.MatchString(f.lines[i]):
+		case "CAPTURED":
 			hasCaptured = true
 		}
 	}
 	return hasID, hasCaptured
+}
+
+// lineAt は source のバイト位置 offset を含む行の 1 始まりの行番号を返す。
+func (f orgFile) lineAt(offset int) int {
+	return strings.Count(f.src[:offset], "\n") + 1
 }
 
 // checkFormat は本文の段落が fillColumn での折り返し結果と一致しない

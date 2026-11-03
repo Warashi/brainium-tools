@@ -155,6 +155,27 @@ func TestRun(t *testing.T) {
 		assertProblem(t, got, "inbox.org", "capture の見出しに :ID:")
 	})
 
+	t.Run("capture の見出しの計画行の後の PROPERTIES は property とみなす", func(t *testing.T) {
+		got := run(t, map[string]string{
+			"inbox.org": ":PROPERTIES:\n:ID: inbox-id\n:END:\n#+title: Inbox\n" +
+				"* capture\nSCHEDULED: <2026-11-03 Tue>\n:PROPERTIES:\n:ID: capture-id\n:CAPTURED: [2026-07-28 Tue 20:48]\n:END:\n",
+		})
+		if len(got) != 0 {
+			t.Errorf("want no problems, got %v", got)
+		}
+	})
+
+	t.Run("ブロックの中の行頭の * も org と同じく capture の見出しとして検査する", func(t *testing.T) {
+		got := run(t, map[string]string{
+			"inbox.org": ":PROPERTIES:\n:ID: inbox-id\n:END:\n#+title: Inbox\n" +
+				"#+begin_example\n* 例\n#+end_example\n",
+		})
+		want := Problem{Path: "inbox.org", Line: 6, Message: "capture の見出しに :ID: を必須とする"}
+		if !slices.Contains(got, want) {
+			t.Errorf("want %v in %v", want, got)
+		}
+	})
+
 	t.Run("inbox 以外のルート直下ファイルの見出しは検査しない", func(t *testing.T) {
 		got := run(t, map[string]string{
 			"tasks.org": ":PROPERTIES:\n:ID: task-id\n:END:\n#+title: Tasks\n* Next\n** TODO やる\n",
