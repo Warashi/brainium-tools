@@ -51,20 +51,11 @@ type orgFile struct {
 	links  []string
 	lines  []string
 	layout layout
-	// verbatimSkips は行ごとのコード表記の候補を探さない範囲。
-	verbatimSkips [][][]int
 }
 
-// verbatimPat はインラインのコード表記 =…= と ~…~ の候補にマッチする。
-// 区切り記号の内側が空白で始まったり終わったりしないことを求めて、
-// 文中の = や ~ 単体との取り違えを避ける。これは報告に使う最短の候補で
-// あって組まれる範囲ではない。組まれる範囲は org の parser が決める。
-const verbatimPat = `=[^=\s](?:[^=]*[^=\s])?=|~[^~\s](?:[^~]*[^~\s])?~`
-
 var (
-	slugRe     = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.org$`)
-	journalRe  = regexp.MustCompile(`^journal/(\d{4})/((\d{4})-\d{2}-\d{2})\.org$`)
-	verbatimRe = regexp.MustCompile(verbatimPat)
+	slugRe    = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*\.org$`)
+	journalRe = regexp.MustCompile(`^journal/(\d{4})/((\d{4})-\d{2}-\d{2})\.org$`)
 )
 
 // OrgFiles は fsys 配下の検査対象になる org ファイルのパスを返す。
@@ -127,7 +118,6 @@ func Run(fsys fs.FS, targets ...string) ([]Problem, error) {
 		problems = append(problems, checkInbox(f)...)
 		problems = append(problems, checkTaskLength(f)...)
 		problems = append(problems, checkFormat(f)...)
-		problems = append(problems, checkEmphasis(f)...)
 	}
 	problems = append(problems, checkIDs(files, archives)...)
 	dirs, err := checkFlatDirs(fsys)
@@ -314,7 +304,7 @@ func parseOrg(p string, data []byte) orgFile {
 	lines := strings.Split(string(data), "\n")
 	src := string(data)
 	root := org.Parse(src)
-	f := orgFile{path: p, src: src, root: root, lines: lines, layout: lineLayout(src, root, lines), verbatimSkips: verbatimSkips(root, lines), title: org.FileTitle(root)}
+	f := orgFile{path: p, src: src, root: root, lines: lines, layout: lineLayout(src, root, lines), title: org.FileTitle(root)}
 	if drawer := org.FileProperties(root); drawer != nil {
 		f.fileID = propertyID(drawer)
 	}
@@ -490,30 +480,6 @@ func checkFormat(f orgFile) []Problem {
 			Line:    line,
 			Message: fmt.Sprintf("段落の折り返しが %d 桁の整形結果と一致しない", fillColumn),
 		})
-	}
-	return problems
-}
-
-// checkEmphasis は org がコード表記として組み直さない =…= と ~…~ を
-// 報告する。前後に置ける文字を外れた記法は色も等幅も付かず、中の
-// リンクも組み立てられないまま素の文字として表示される。ブロックと
-// ドロワーと固定幅行の中、およびキーワード行とコメントは org 自身が組み
-// 直さないので対象にしない。
-func checkEmphasis(f orgFile) []Problem {
-	var problems []Problem
-	for i, line := range f.lines {
-		switch f.layout.kinds[i] {
-		case kindBlock, kindDrawer, kindFixed, kindKeyword, kindComment:
-			continue
-		}
-		dangling := danglingVerbatim(line, f.verbatimSkips[i])
-		for _, s := range dangling {
-			problems = append(problems, Problem{
-				Path:    f.path,
-				Line:    i + 1,
-				Message: fmt.Sprintf("コード表記 %s の前後の文字が条件を満たさず組まれない", line[s[0]:s[1]]),
-			})
-		}
 	}
 	return problems
 }

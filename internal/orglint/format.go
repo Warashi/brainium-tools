@@ -7,19 +7,11 @@ import (
 	"github.com/Warashi/brainium-tools/internal/org"
 )
 
-// Format は本文の段落を fillColumn で折り返し直した内容を返す。和文に
-// 直接続いて組まれないコード表記には、先に空白を補う。見出し・表・ブ
-// ロック・ドロワーには手を入れない。
+// Format は本文の段落を fillColumn で折り返し直した内容を返す。見出し・
+// 表・ブロック・ドロワーには手を入れない。
 func Format(data []byte) []byte {
 	lines := strings.Split(string(data), "\n")
-	root := org.Parse(string(data))
-	l := lineLayout(string(data), root, lines)
-	skips := verbatimSkips(root, lines)
-	for i := range lines {
-		if l.kinds[i] == kindBody {
-			lines[i] = spaceVerbatim(lines[i], skips[i])
-		}
-	}
+	l := lineLayout(string(data), org.Parse(string(data)), lines)
 	out, _ := formatLines(lines, l)
 	return []byte(strings.Join(out, "\n"))
 }

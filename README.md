@@ -51,14 +51,10 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
   ド行もつなぐ。ブラケットリンクは org の parser がリンクと解析した
   ものだけ記法を幅に数えないので、コード表記と重なる行では Emacs の
   表示と桁数が異なる
-- `=…=` / `~…~` のコード表記の前後の文字
 - `tasks.org` の 1 task が 40 行以内であること
 
-`orglint -fix` は折り返しと、和文に直接続くコード表記の空白を直す。空
-白は、前が和文の文字か開き括弧以外の全角の句読点・記号、または後ろが
-和文の文字のときだけ補う。後ろが全角の句読点・閉じ括弧のものは文意で
-直し方が変わるので報告だけする。`orglint -fix-only` は検査せずに同じ修
-正だけをするので、treefmt の formatter に使える。
+`orglint -fix` は折り返しを直す。`orglint -fix-only` は検査せずに同じ
+修正だけをするので、treefmt の formatter に使える。
 
 ## notesearch
 
