@@ -12,8 +12,8 @@ import (
 // いものには触れない。後ろの全角の句読点・閉じ括弧、前の開き括弧や半角
 // スラッシュは、語を足すか句読点を動かすかが文意で決まるので報告に任せ
 // る。
-func spaceVerbatim(line string) string {
-	_, dangling := emphasisSpans(line)
+func spaceVerbatim(line string, skip [][]int) string {
+	_, dangling := emphasisSpans(line, skip)
 	for _, s := range slices.Backward(dangling) {
 		start, end := s[0], s[1]
 		before, _ := utf8.DecodeLastRuneInString(line[:start])

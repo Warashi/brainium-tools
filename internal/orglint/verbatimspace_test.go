@@ -21,6 +21,7 @@ func TestFormatSpacesVerbatimNextToJapanese(t *testing.T) {
 		{"等号で挟んだ数式は組まれないので触れない", "長さ=10、幅=20 とする。\n", "長さ=10、幅=20 とする。\n"},
 		{"組まれているものには触れない", "これは =foo= です。\n", "これは =foo= です。\n"},
 		{"固定幅行には触れない", ": これは=foo=です。\n", ": これは=foo=です。\n"},
+		{"リンクの行き先には触れない", "[[https://e.com/?日本=x&y=-1][説明]]を見る。\n", "[[https://e.com/?日本=x&y=-1][説明]]を見る。\n"},
 		{"ブロックの中には触れない", "#+begin_example\nこれは=foo=です。\n#+end_example\n", "#+begin_example\nこれは=foo=です。\n#+end_example\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

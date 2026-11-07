@@ -12,10 +12,12 @@ import (
 // ロック・ドロワーには手を入れない。
 func Format(data []byte) []byte {
 	lines := strings.Split(string(data), "\n")
-	l := lineLayout(string(data), org.Parse(string(data)), lines)
+	root := org.Parse(string(data))
+	l := lineLayout(string(data), root, lines)
+	paths := linkPathSpans(root, lines)
 	for i := range lines {
 		if l.kinds[i] == kindBody {
-			lines[i] = spaceVerbatim(lines[i])
+			lines[i] = spaceVerbatim(lines[i], paths[i])
 		}
 	}
 	out, _ := formatLines(lines, l)

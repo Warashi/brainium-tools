@@ -51,6 +51,8 @@ type orgFile struct {
 	links  []string
 	lines  []string
 	layout layout
+	// linkPaths は行ごとのリンクの説明以外の範囲(linkPathSpans)。
+	linkPaths [][][]int
 }
 
 // verbatimPat はインラインのコード表記 =…= と ~…~ の候補にマッチする。
@@ -314,7 +316,7 @@ func parseOrg(p string, data []byte) orgFile {
 	lines := strings.Split(string(data), "\n")
 	src := string(data)
 	root := org.Parse(src)
-	f := orgFile{path: p, src: src, root: root, lines: lines, layout: lineLayout(src, root, lines), title: org.FileTitle(root)}
+	f := orgFile{path: p, src: src, root: root, lines: lines, layout: lineLayout(src, root, lines), linkPaths: linkPathSpans(root, lines), title: org.FileTitle(root)}
 	if drawer := org.FileProperties(root); drawer != nil {
 		f.fileID = propertyID(drawer)
 	}
@@ -506,7 +508,7 @@ func checkEmphasis(f orgFile) []Problem {
 		case kindBlock, kindDrawer, kindFixed, kindKeyword, kindComment:
 			continue
 		}
-		_, dangling := emphasisSpans(line)
+		_, dangling := emphasisSpans(line, f.linkPaths[i])
 		for _, s := range dangling {
 			problems = append(problems, Problem{
 				Path:    f.path,

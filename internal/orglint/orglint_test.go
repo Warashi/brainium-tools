@@ -658,6 +658,29 @@ func TestCheckEmphasis(t *testing.T) {
 			t.Errorf("want no problems, got %v", got)
 		}
 	})
+
+	for _, tc := range []struct{ name, body string }{
+		{"説明付きのリンク", "[[https://example.com/search?q=foo&lang=ja][検索]]を見る。\n"},
+		{"説明のないリンク", "[[https://example.com/search?q=foo&lang=ja]]を見る。\n"},
+		{"素の URL", "素の https://example.com/search?q=foo&lang=ja を見る。\n"},
+		{"山括弧のリンク", "山括弧 <https://example.com/search?q=foo&lang=ja> を見る。\n"},
+	} {
+		t.Run(tc.name+"の行き先の区切り記号は報告しない", func(t *testing.T) {
+			if got := problems(t, tc.body); len(got) != 0 {
+				t.Errorf("want no problems, got %v", got)
+			}
+		})
+	}
+
+	t.Run("リンクの説明の中のコード表記は報告する", func(t *testing.T) {
+		got := problems(t, "[[https://example.com/?a=1][設定は=foo=です]]を見る。\n")
+		if len(got) != 1 {
+			t.Fatalf("want 1 problem, got %v", got)
+		}
+		if !strings.Contains(got[0].Message, "=foo=") {
+			t.Errorf("Message = %q, want to contain %q", got[0].Message, "=foo=")
+		}
+	})
 }
 
 func TestEmphasisSpans(t *testing.T) {
@@ -670,7 +693,7 @@ func TestEmphasisSpans(t *testing.T) {
 	}
 	check := func(t *testing.T, line string, wantTypeset, wantDangling []string) {
 		t.Helper()
-		typeset, dangling := emphasisSpans(line)
+		typeset, dangling := emphasisSpans(line, nil)
 		if got := texts(line, typeset); !slices.Equal(got, wantTypeset) {
 			t.Errorf("typeset = %q, want %q", got, wantTypeset)
 		}

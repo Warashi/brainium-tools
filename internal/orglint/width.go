@@ -2,6 +2,7 @@ package orglint
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -39,7 +40,7 @@ const (
 // 前後の文字は正規表現に含めずに 1 文字ずつ見る。=a= =b= のように候補が
 // 続く行で、直前の候補が区切りの空白を食って次を取りこぼさないため。
 func verbatimStrictSpans(line string) [][]int {
-	typeset, _ := emphasisSpans(line)
+	typeset, _ := emphasisSpans(line, nil)
 	return typeset
 }
 
@@ -51,7 +52,11 @@ func verbatimStrictSpans(line string) [][]int {
 // 直後が条件を満たす」最初の同じ記号を閉じ記号とする。中身に区切り記号
 // が入っても構わないので、=--opt=val-<name>= は内側の = で閉じずに
 // 全体が組まれる。組まれる範囲に含まれない候補を dangling とする。
-func emphasisSpans(line string) (typeset, dangling [][]int) {
+//
+// skip は昇順に並んだ、候補を探さない範囲。候補は skip の間の区間ごとに
+// 探す。行全体で探して skip と重なる候補を捨てると、skip の中から始まる
+// 候補が skip の外の開き記号まで飲み込み、その先の候補を取りこぼす。
+func emphasisSpans(line string, skip [][]int) (typeset, dangling [][]int) {
 	for i := 0; i < len(line); {
 		if end := typesetEnd(line, i); end > 0 {
 			typeset = append(typeset, []int{i, end})
@@ -60,10 +65,15 @@ func emphasisSpans(line string) (typeset, dangling [][]int) {
 		}
 		i++
 	}
-	for _, m := range verbatimRe.FindAllStringIndex(line, -1) {
-		if !inside(typeset, m[0], m[1]) {
-			dangling = append(dangling, m)
+	from := 0
+	for _, gap := range append(slices.Clone(skip), []int{len(line), len(line)}) {
+		for _, m := range verbatimRe.FindAllStringIndex(line[from:gap[0]], -1) {
+			m = []int{from + m[0], from + m[1]}
+			if !inside(typeset, m[0], m[1]) {
+				dangling = append(dangling, m)
+			}
 		}
+		from = max(from, gap[1])
 	}
 	return typeset, dangling
 }
