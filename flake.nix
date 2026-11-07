@@ -19,6 +19,7 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
       commands = [
         "orglint"
+        "orgparse"
         "notesearch"
         "notestatus"
         "notetree"
