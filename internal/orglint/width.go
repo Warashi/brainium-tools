@@ -1,11 +1,7 @@
 package orglint
 
 import (
-	"slices"
 	"sort"
-	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/Warashi/brainium-tools/internal/org"
 )
@@ -18,96 +14,6 @@ func displayWidth(s string) int {
 		w += runeWidth(r)
 	}
 	return w
-}
-
-// emphasisPre と emphasisPost は org-emphasis-regexp-components の
-// 既定で =…= や ~…~ の前後に置ける文字。em ダッシュ以外はすべて半角
-// なので、「例えば=aaa=は」のように和文へ直に続けたものは組み直されず
-// ただの文字として表示される。org を使うのはこのリポジトリだけでは
-// ないため、設定を広げる側ではなく本文を既定に合わせる側に倒す。
-const (
-	emphasisPre  = "-—\t\n\f\r ('\"{"
-	emphasisPost = "-—\t\n\f\r .,:!?;'\")}["
-)
-
-// emphasisSpans は行中のコード表記の候補を、組まれるもの(typeset)と
-// 前後の文字の条件を満たさず組まれないもの(dangling)に分けて返す。
-//
-// 組まれる範囲は Emacs の org-verbatim-re に合わせる。開き記号の前が
-// 条件を満たし、直後が空白でなければ、そこから先で「直前が空白でなく、
-// 直後が条件を満たす」最初の同じ記号を閉じ記号とする。中身に区切り記号
-// が入っても構わないので、=--opt=val-<name>= は内側の = で閉じずに
-// 全体が組まれる。組まれる範囲に含まれない候補を dangling とする。
-//
-// skip は昇順に並んだ、候補を探さない範囲。候補は skip の間の区間ごとに
-// 探す。行全体で探して skip と重なる候補を捨てると、skip の中から始まる
-// 候補が skip の外の開き記号まで飲み込み、その先の候補を取りこぼす。
-func emphasisSpans(line string, skip [][]int) (typeset, dangling [][]int) {
-	for i := 0; i < len(line); {
-		if end := typesetEnd(line, i); end > 0 {
-			typeset = append(typeset, []int{i, end})
-			i = end
-			continue
-		}
-		i++
-	}
-	from := 0
-	for _, gap := range append(slices.Clone(skip), []int{len(line), len(line)}) {
-		for _, m := range verbatimRe.FindAllStringIndex(line[from:gap[0]], -1) {
-			m = []int{from + m[0], from + m[1]}
-			if !inside(typeset, m[0], m[1]) {
-				dangling = append(dangling, m)
-			}
-		}
-		from = max(from, gap[1])
-	}
-	return typeset, dangling
-}
-
-// typesetEnd は line[start] を開き記号とするコード表記が組まれるとき、
-// その終端のバイト位置を返す。組まれないときは -1 を返す。
-func typesetEnd(line string, start int) int {
-	marker := line[start]
-	if !strings.ContainsRune(verbatimDelims, rune(marker)) || !emphasisPreOK(line, start) {
-		return -1
-	}
-	if start+1 >= len(line) {
-		return -1
-	}
-	if r, _ := utf8.DecodeRuneInString(line[start+1:]); unicode.IsSpace(r) {
-		return -1
-	}
-	for j := start + 2; j < len(line); j++ {
-		if line[j] != marker || spaceBefore(line, j) {
-			continue
-		}
-		if emphasisPostOK(line, j+1) {
-			return j + 1
-		}
-	}
-	return -1
-}
-
-// spaceBefore は line[:at] の末尾の文字が空白かを返す。
-func spaceBefore(line string, at int) bool {
-	r, _ := utf8.DecodeLastRuneInString(line[:at])
-	return unicode.IsSpace(r)
-}
-
-func emphasisPreOK(line string, start int) bool {
-	if start == 0 {
-		return true
-	}
-	r, _ := utf8.DecodeLastRuneInString(line[:start])
-	return strings.ContainsRune(emphasisPre, r)
-}
-
-func emphasisPostOK(line string, end int) bool {
-	if end >= len(line) {
-		return true
-	}
-	r, _ := utf8.DecodeRuneInString(line[end:])
-	return strings.ContainsRune(emphasisPost, r)
 }
 
 // runeWidths は text の rune ごとの表示幅を返す。org の parser がブラケット
@@ -142,16 +48,6 @@ func runeWidths(text string, head int) []int {
 		hide(l.ContentsEnd, end)
 	}
 	return ws
-}
-
-// inside は [start, end) がいずれかの span に収まっているかを返す。
-func inside(spans [][]int, start, end int) bool {
-	for _, s := range spans {
-		if s[0] <= start && end <= s[1] {
-			return true
-		}
-	}
-	return false
 }
 
 // runeIndex は s のバイト位置から rune 位置への対応を返す。
@@ -315,7 +211,3 @@ var wideRanges = [][2]rune{
 	{0x1FB00, 0x1FB92},
 	{0x20000, 0x3FFFF}, // CJK 統合漢字拡張 B 以降
 }
-
-// verbatimDelims はコード表記の区切り記号。強調の区切りは他にもあるが、
-// 前後の文字を検査しているのはこの 2 つだけ。
-const verbatimDelims = "=~"

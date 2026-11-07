@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/Warashi/brainium-tools/internal/org"
 )
 
 func run(t *testing.T, files map[string]string) []Problem {
@@ -688,22 +690,21 @@ func TestCheckEmphasis(t *testing.T) {
 	})
 }
 
-func TestEmphasisSpans(t *testing.T) {
-	texts := func(line string, spans [][]int) []string {
-		out := []string{}
-		for _, s := range spans {
-			out = append(out, line[s[0]:s[1]])
-		}
-		return out
-	}
+func TestVerbatimSpans(t *testing.T) {
 	check := func(t *testing.T, line string, wantTypeset, wantDangling []string) {
 		t.Helper()
-		typeset, dangling := emphasisSpans(line, nil)
-		if got := texts(line, typeset); !slices.Equal(got, wantTypeset) {
-			t.Errorf("typeset = %q, want %q", got, wantTypeset)
+		for _, w := range wantTypeset {
+			start := strings.Index(line, w)
+			if !typesetAt(line, start, start+len(w)) {
+				t.Errorf("%q is not typeset", w)
+			}
 		}
-		if got := texts(line, dangling); !slices.Equal(got, wantDangling) {
-			t.Errorf("dangling = %q, want %q", got, wantDangling)
+		got := []string{}
+		for _, s := range danglingVerbatim(line, verbatimSkips(org.Parse(line), []string{line})[0]) {
+			got = append(got, line[s[0]:s[1]])
+		}
+		if want := append([]string{}, wantDangling...); !slices.Equal(got, want) {
+			t.Errorf("dangling = %q, want %q", got, want)
 		}
 	}
 
@@ -732,8 +733,8 @@ func TestEmphasisSpans(t *testing.T) {
 		check(t, "実装した。 =orglint= を通す", []string{"=orglint="}, nil)
 	})
 
-	// Emacs の org-verbatim-re は中身を非貪欲に取り、後ろの文字が条件を
-	// 満たす最初の閉じ記号で閉じる。中身に区切り記号が入っても構わない。
+	// org は中身を非貪欲に取り、後ろの文字が条件を満たす最初の閉じ記号で
+	// 閉じる。中身に区切り記号が入っても構わない。
 	t.Run("中に区切り記号を含んでも後ろの条件を満たす閉じ記号まで組まれる", func(t *testing.T) {
 		check(t, "コピーし =--opt=val-<name>= で渡す", []string{"=--opt=val-<name>="}, nil)
 		check(t, "=a=b =c= d", []string{"=a=b =c="}, nil)

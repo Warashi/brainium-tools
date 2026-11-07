@@ -51,16 +51,14 @@ type orgFile struct {
 	links  []string
 	lines  []string
 	layout layout
-	// linkPaths は行ごとのリンクの説明以外の範囲(linkPathSpans)。
-	linkPaths [][][]int
+	// verbatimSkips は行ごとのコード表記の候補を探さない範囲。
+	verbatimSkips [][][]int
 }
 
 // verbatimPat はインラインのコード表記 =…= と ~…~ の候補にマッチする。
 // 区切り記号の内側が空白で始まったり終わったりしないことを求めて、
-// 文中の = や ~ 単体との取り違えを避ける。実際に組まれる範囲は前後の
-// 文字で決まり、中身に区切り記号を含むこともあるので、これは報告に使う
-// 最短の候補であって組まれる範囲ではない。組まれる範囲は emphasisSpans
-// が決める。
+// 文中の = や ~ 単体との取り違えを避ける。これは報告に使う最短の候補で
+// あって組まれる範囲ではない。組まれる範囲は org の parser が決める。
 const verbatimPat = `=[^=\s](?:[^=]*[^=\s])?=|~[^~\s](?:[^~]*[^~\s])?~`
 
 var (
@@ -316,7 +314,7 @@ func parseOrg(p string, data []byte) orgFile {
 	lines := strings.Split(string(data), "\n")
 	src := string(data)
 	root := org.Parse(src)
-	f := orgFile{path: p, src: src, root: root, lines: lines, layout: lineLayout(src, root, lines), linkPaths: linkPathSpans(root, lines), title: org.FileTitle(root)}
+	f := orgFile{path: p, src: src, root: root, lines: lines, layout: lineLayout(src, root, lines), verbatimSkips: verbatimSkips(root, lines), title: org.FileTitle(root)}
 	if drawer := org.FileProperties(root); drawer != nil {
 		f.fileID = propertyID(drawer)
 	}
@@ -508,7 +506,7 @@ func checkEmphasis(f orgFile) []Problem {
 		case kindBlock, kindDrawer, kindFixed, kindKeyword, kindComment:
 			continue
 		}
-		_, dangling := emphasisSpans(line, f.linkPaths[i])
+		dangling := danglingVerbatim(line, f.verbatimSkips[i])
 		for _, s := range dangling {
 			problems = append(problems, Problem{
 				Path:    f.path,

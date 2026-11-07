@@ -48,6 +48,18 @@ func TestFormatSpacedVerbatimSettlesInOnePass(t *testing.T) {
 	}
 }
 
+func TestFormatWithLinksSettlesInOnePass(t *testing.T) {
+	// リンクとコード表記が重なる段落も、1 回の整形で正規形に届く。
+	for k := 20; k <= 40; k++ {
+		body := strings.Repeat("あ", k) + "は=a [[https://example.com/?q=foo&lang=ja][b= c]] と" +
+			"[[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][説明 の =x= 途中]]で" + strings.Repeat("い", 40) + "\n"
+		once := format(t, body)
+		if twice := format(t, once); twice != once {
+			t.Errorf("k=%d: 2 回目で変わった:\n%s\n---\n%s", k, once, twice)
+		}
+	}
+}
+
 func TestCheckFormatDoesNotReportMissingVerbatimSpace(t *testing.T) {
 	// 空白の欠けはコード表記の検査が報告する。折り返しの違反として重ね
 	// て出さない。

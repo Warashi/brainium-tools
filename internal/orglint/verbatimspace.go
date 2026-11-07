@@ -11,9 +11,11 @@ import (
 // 句読点・記号の場合と、後ろが和文の文字の場合で、補った結果が組まれな
 // いものには触れない。後ろの全角の句読点・閉じ括弧、前の開き括弧や半角
 // スラッシュは、語を足すか句読点を動かすかが文意で決まるので報告に任せ
-// る。
+// る。org-emphasis-regexp-components の既定では和文に直に続く記法は
+// 組まれないが、org を使うのはこのリポジトリだけではないので、設定を
+// 広げずに本文を既定に合わせる。
 func spaceVerbatim(line string, skip [][]int) string {
-	_, dangling := emphasisSpans(line, skip)
+	dangling := danglingVerbatim(line, skip)
 	for _, s := range slices.Backward(dangling) {
 		start, end := s[0], s[1]
 		before, _ := utf8.DecodeLastRuneInString(line[:start])
@@ -33,7 +35,7 @@ func spaceVerbatim(line string, skip [][]int) string {
 			start++
 			end++
 		}
-		if typesetEnd(candidate, start) == end {
+		if typesetAt(candidate, start, end) {
 			line = candidate
 		}
 	}

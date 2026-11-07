@@ -14,10 +14,10 @@ func Format(data []byte) []byte {
 	lines := strings.Split(string(data), "\n")
 	root := org.Parse(string(data))
 	l := lineLayout(string(data), root, lines)
-	paths := linkPathSpans(root, lines)
+	skips := verbatimSkips(root, lines)
 	for i := range lines {
 		if l.kinds[i] == kindBody {
-			lines[i] = spaceVerbatim(lines[i], paths[i])
+			lines[i] = spaceVerbatim(lines[i], skips[i])
 		}
 	}
 	out, _ := formatLines(lines, l)
