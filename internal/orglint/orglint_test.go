@@ -580,15 +580,20 @@ func TestCheckFormat(t *testing.T) {
 		}
 	})
 
-	t.Run("折り返しで割れたリンクの ]] も隠れているものとして数える", func(t *testing.T) {
-		// Emacs は段落を 1 行につないだ状態で不可視属性を付けてから
-		// 折り返すので、2 行に割れたリンクの記法も隠れたままになる。
-		if got := widthProblems(t, "  行幅]]"+strings.Repeat("あ", 32)+"\n"); len(got) != 0 {
+	t.Run("折り返しで割れたリンクも記法を幅に数えない", func(t *testing.T) {
+		// 説明の途中で割れても、段落としてはリンクなので記法は隠れる。
+		// 2 行目は 69 桁で、]] を数えると 71 桁になる。
+		link := "[[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][org の 行幅]]"
+		body := "- " + strings.Repeat("あ", 32) + "[[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][org\n  の 行幅]]" + strings.Repeat("あ", 30) + "\n"
+		if !strings.Contains(strings.ReplaceAll(body, "\n  ", " "), link) {
+			t.Fatalf("body がリンクを割っていない: %q", body)
+		}
+		if got := widthProblems(t, body); len(got) != 0 {
 			t.Errorf("want no problems, got %v", got)
 		}
 	})
 
-	t.Run("リンクの直前の空白で折り返した継続行は字下げを数える", func(t *testing.T) {
+	t.Run("リンクで始まる継続行も字下げを数える", func(t *testing.T) {
 		link := "[[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][行幅]]"
 		stable := "- " + strings.Repeat("あ", 34) + "\n  " + link + strings.Repeat("あ", 32) + "\n  あ\n"
 		if got := widthProblems(t, stable); len(got) != 0 {

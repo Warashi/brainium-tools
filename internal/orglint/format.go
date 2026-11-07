@@ -84,21 +84,30 @@ func fillOnce(para []string, indent string) []string {
 		text = joinLine(text, strings.TrimSpace(line))
 	}
 
+	// 表示幅は 1 行につないだ段落から求め、折り返しで切り出す rune に
+	// 付けて引き継ぐ。切り出した後の断片を解析し直すと、途中で割れた
+	// リンクを parser が見つけられない。
+	rs := []rune(text)
+	ws := runeWidths(text, head)
 	var out []string
-	hideIndent := false
 	for {
-		at := fillBreak(text, fillColumn, 0, hideIndent, head)
+		at := fillBreak(rs, ws, fillColumn, 0, head)
 		if at < 0 {
 			break
 		}
-		rs := []rune(text)
-		rest := string(rs[at:])
-		trimmed := strings.TrimLeft(rest, " \t")
-		hideIndent = trimmed == rest
 		out = append(out, strings.TrimRight(string(rs[:at]), " \t"))
-		text = indent + trimmed
+		for at < len(rs) && (rs[at] == ' ' || rs[at] == '\t') {
+			at++
+		}
+		ind := []rune(indent)
+		indWidths := make([]int, len(ind))
+		for i, r := range ind {
+			indWidths[i] = runeWidth(r)
+		}
+		rs = append(ind, rs[at:]...)
+		ws = append(indWidths, ws[at:]...)
 	}
-	return append(out, text)
+	return append(out, string(rs))
 }
 
 func leadingSpace(line string) string {

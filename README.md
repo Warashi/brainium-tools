@@ -48,7 +48,9 @@ $ nix run github:Warashi/brainium-tools#notesearch -- <query>
   行も Emacs の `org-fill-paragraph` と同じく、`#` だけの行で区切った段
   落ごとに、継続行の頭に 1 行目の `# ` などを付けて折り返す。comment
   ブロックの中は空行で区切った素の文章として折り返し、リストやキーワー
-  ド行もつなぐ
+  ド行もつなぐ。ブラケットリンクは org の parser がリンクと解析した
+  ものだけ記法を幅に数えないので、コード表記と重なる行では Emacs の
+  表示と桁数が異なる
 - `=…=` / `~…~` のコード表記の前後の文字
 - `tasks.org` の 1 task が 40 行以内であること
 

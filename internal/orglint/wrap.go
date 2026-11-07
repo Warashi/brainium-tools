@@ -21,11 +21,9 @@ const tailBanned = "([{（［｛「『【〈《〔〝‘“＄＃£¥#"
 // kinsoku-limit に合わせる。
 const kinsokuLimit = 4
 
-// fillBreak は Emacs の fill が line を最初に折り返す位置を rune 単位で
-// 返す。折り返さない場合は -1 を返す。offset は行頭に付く継続行の
-// インデント幅。hideIndent は line の行頭の字下げが不可視属性を継承して
-// いるかで、直前の折り返しが空白を飲み込まなかったときだけ真になる。
-// head は行頭にある fill-prefix の rune 数で、Emacs と同じくその中と
+// fillBreak は Emacs の fill が rs を最初に折り返す位置を rune 単位で
+// 返す。折り返さない場合は -1 を返す。ws は rs の rune ごとの表示幅。
+// offset は行頭に付く継続行のインデント幅。head は行頭にある fill-prefix の rune 数で、Emacs と同じくその中と
 // 直後では折り返さない。
 //
 // Emacs の挙動を実測して次の順に決めている。
@@ -38,9 +36,7 @@ const kinsokuLimit = 4
 //     行末を伸ばして飲み込む。
 //  3. 折り返し点がなければ(長い URL など)、そこから後ろにある最初の
 //     折り返し点まで進む。
-func fillBreak(line string, limit int, offset int, hideIndent bool, head int) int {
-	rs := []rune(line)
-	ws := runeWidths(line, hideIndent)
+func fillBreak(rs []rune, ws []int, limit int, offset int, head int) int {
 	spans := noWrapSpans(rs)
 
 	// 1. move-to-column 相当。0 桁の文字は桁が足りていても読み飛ばす。

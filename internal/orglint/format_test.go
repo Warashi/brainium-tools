@@ -100,7 +100,7 @@ func TestFormat(t *testing.T) {
 	})
 
 	// コメントの期待値は Emacs 30 の org-fill-paragraph(fill-column 70)の
-	// 実測。継続行の頭がリンクで始まる場合の不可視属性の継承は測っていない。
+	// 実測。
 	t.Run("コメントは継続行の頭に # と空白を付けて折り返す", func(t *testing.T) {
 		a := func(n int) string { return strings.Repeat("あ", n) }
 		for _, c := range []struct{ name, body, want string }{
@@ -223,6 +223,17 @@ func TestFormat(t *testing.T) {
 		}
 	})
 
+	t.Run("コード表記の中から始まるリンクは記法も幅に数える", func(t *testing.T) {
+		// org の parser は =a [[…][b= をコード表記とし、中のリンクを解析
+		// しない。記法を隠すのはツリー上のリンクだけ。
+		head := "=a [[https://example.com/xxxxxxxxxx][b= c]] "
+		got := format(t, head+strings.Repeat("あ", 40)+"\n")
+		want := head + strings.Repeat("あ", 13) + "\n" + strings.Repeat("あ", 27) + "\n"
+		if got != want {
+			t.Errorf("got:\n%s\nwant:\n%s", got, want)
+		}
+	})
+
 	t.Run("表示幅が 70 桁に収まるリンクだけの行には触れない", func(t *testing.T) {
 		body := "対象: [[id:C0FFEE00-1234-4ABC-9DEF-0123456789AB][screen の escape と vim の Ctrl-c が衝突する]]\n"
 		if got := format(t, body); got != body {
@@ -230,12 +241,7 @@ func TestFormat(t *testing.T) {
 		}
 	})
 
-	t.Run("リンクの直前の空白で折り返した継続行は字下げを幅に数える", func(t *testing.T) {
-		// リンクの直前で空白なしに折り返すと字下げがリンクの不可視属性を
-		// 継承して幅に数えられないが、つなぎ直すと ] の前に空白が入り、
-		// その空白で折り返した字下げは見えるので 2 行目が 72 桁になる。
-		// Emacs も 1 回目の fill では前者の形を作り、2 回目で変える。
-		// orglint は 2 回目以降に変わらない形を採る。
+	t.Run("リンクで始まる継続行も字下げを幅に数える", func(t *testing.T) {
 		link := "[[id:0f1e2d3c-4b5a-4968-8778-a6b5c4d3e2f1][行幅]]"
 		got := format(t, "- "+strings.Repeat("あ", 34)+link+strings.Repeat("あ", 33)+"\n")
 		want := "- " + strings.Repeat("あ", 34) + "\n  " + link + strings.Repeat("あ", 32) + "\n  あ\n"

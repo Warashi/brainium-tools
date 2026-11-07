@@ -1,12 +1,13 @@
 package orglint
 
 import (
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/Warashi/brainium-tools/internal/org"
 )
 
 // displayWidth は s の表示幅を返す。全角 1 文字を 2 桁、それ以外を
@@ -19,13 +20,6 @@ func displayWidth(s string) int {
 	return w
 }
 
-var (
-	// linkRe は org のブラケットリンク [[パス]] と [[パス][説明]]。
-	linkRe = regexp.MustCompile(`\[\[([^\[\]]+)\](?:\[([^\[\]]+)\])?\]`)
-	// openLinkRe は行末で閉じていないリンクの前半 [[パス][ 。
-	openLinkRe = regexp.MustCompile(`\[\[[^\[\]]+\]\[[^\[\]]*$`)
-)
-
 // emphasisPre と emphasisPost は org-emphasis-regexp-components の
 // 既定で =…= や ~…~ の前後に置ける文字。em ダッシュ以外はすべて半角
 // なので、「例えば=aaa=は」のように和文へ直に続けたものは組み直されず
@@ -35,14 +29,6 @@ const (
 	emphasisPre  = "-—\t\n\f\r ('\"{"
 	emphasisPost = "-—\t\n\f\r .,:!?;'\")}["
 )
-
-// verbatimStrictSpans はコード表記として組まれる範囲をバイト単位で返す。
-// 前後の文字は正規表現に含めずに 1 文字ずつ見る。=a= =b= のように候補が
-// 続く行で、直前の候補が区切りの空白を食って次を取りこぼさないため。
-func verbatimStrictSpans(line string) [][]int {
-	typeset, _ := emphasisSpans(line, nil)
-	return typeset
-}
 
 // emphasisSpans は行中のコード表記の候補を、組まれるもの(typeset)と
 // 前後の文字の条件を満たさず組まれないもの(dangling)に分けて返す。
@@ -124,86 +110,38 @@ func emphasisPostOK(line string, end int) bool {
 	return strings.ContainsRune(emphasisPost, r)
 }
 
-// runeWidths は line の rune ごとの表示幅を返す。org-link-descriptive
-// が既定で有効な Emacs はブラケットリンクの角括弧とパスを隠し、説明が
-// あれば説明だけ、なければパスだけを表示する。隠れる部分は 0 桁として
-// 数える。auto-fill-mode が見る桁数も同じくこの表示幅なので、行幅の
-// 判定と折り返し位置の計算はどちらもこちらを使う。
-func runeWidths(line string, hideIndent bool) []int {
-	rs := []rune(line)
+// runeWidths は text の rune ごとの表示幅を返す。org の parser がブラケット
+// リンクと解析した部分は、説明があれば説明だけ、なければパスだけを数え、
+// 残りの記法を 0 桁とする。コード表記の中は parser がリンクを解析しない
+// ので記法もそのまま数える。head は行頭の fill-prefix の rune 数で、
+// コメントの # の後ろもリンクを隠すため、その前置きを外して解析する。
+func runeWidths(text string, head int) []int {
+	rs := []rune(text)
 	ws := make([]int, len(rs))
 	for i, r := range rs {
 		ws[i] = runeWidth(r)
 	}
-	for _, span := range hiddenSpans(line, hideIndent) {
-		for i := span[0]; i < span[1]; i++ {
-			ws[i] = 0
+	body := string(rs[head:])
+	index := runeIndex(body)
+	hide := func(begin, end int) {
+		for i := index[begin]; i < index[end]; i++ {
+			ws[head+i] = 0
 		}
 	}
-	return ws
-}
-
-// hiddenSpans は Emacs が隠すリンク記法の範囲を rune 単位の [start, end)
-// で返す。コード表記の中のリンクは org が組み立て直さないので、記法が
-// そのまま表示される。
-func hiddenSpans(line string, hideIndent bool) [][2]int {
-	verbatim := verbatimStrictSpans(line)
-	index := runeIndex(line)
-	var spans [][2]int
-	add := func(start, end int) {
-		spans = append(spans, [2]int{index[start], index[end]})
-	}
-
-	head, tail := len(line), 0
-	for _, m := range linkRe.FindAllStringSubmatchIndex(line, -1) {
-		if inside(verbatim, m[0], m[1]) {
+	for _, l := range org.Links(org.Parse(body)) {
+		if body[l.Begin] != '[' {
 			continue
 		}
-		// 説明があればパスまでの前半と末尾の ]] が隠れる。なければ
-		// 両端の [[ と ]] だけが隠れてパスが見える。
-		open := m[0] + 2
-		if m[4] >= 0 {
-			open = m[4]
+		end := l.End - l.PostBlank
+		if l.ContentsBegin < 0 {
+			hide(l.Begin, l.Begin+2)
+			hide(end-2, end)
+			continue
 		}
-		add(m[0], open)
-		add(m[1]-2, m[1])
-		head, tail = min(head, m[0]), m[1]
+		hide(l.Begin, l.ContentsBegin)
+		hide(l.ContentsEnd, end)
 	}
-
-	// 説明の途中で折り返されたリンクの断片。Emacs は段落を 1 行に
-	// つないだ状態で不可視属性を付けてから折り返すので、折り返しで
-	// リンクが 2 行に割れても両端の記法は隠れたままになる。
-	if at := unclosedTail(line[:head], verbatim); at >= 0 {
-		add(at, at+2)
-	}
-	if m := openLinkRe.FindStringIndex(line[tail:]); m != nil && !inside(verbatim, tail+m[0], tail+m[1]) {
-		open := strings.LastIndex(line[tail+m[0]:tail+m[1]], "][") + 2
-		add(tail+m[0], tail+m[0]+open)
-	}
-
-	// 行頭の字下げの直後にリンクが始まる行では字下げも隠れる。Emacs の
-	// fill は折り返しで入れる改行に「改行の次の文字」のテキスト属性を
-	// 与え、続けて挿入する字下げがそれを継承するため。空白の位置で
-	// 折り返したときは改行が空白の属性を受け取るので継承は起きない。
-	indent := len([]rune(leadingSpace(line)))
-	if hideIndent && indent > 0 {
-		for _, s := range spans {
-			if s[0] == indent {
-				spans = append(spans, [2]int{0, indent})
-				break
-			}
-		}
-	}
-	return spans
-}
-
-// unclosedTail は開き記法のないまま行中に現れる ]] の位置を返す。
-func unclosedTail(prefix string, verbatim [][]int) int {
-	at := strings.Index(prefix, "]]")
-	if at < 0 || strings.Contains(prefix[:at], "[[") || inside(verbatim, at, at+2) {
-		return -1
-	}
-	return at
+	return ws
 }
 
 // inside は [start, end) がいずれかの span に収まっているかを返す。
