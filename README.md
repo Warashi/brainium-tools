@@ -13,6 +13,9 @@ org-mode で書いた個人の知識リポジトリ(brainium 形式)を扱う Go
   うが安い部分を畳み、出力は `-max-bytes` に収まるまで削る
 - `notestatus` — 精錬待ち(`draft` と `:STALE_AFTER:` 超過)のノートの列挙
 - `notesearch-eval` — 評価クエリ集で `notesearch` のランキングを測る
+- `orgedit` — capture・プロパティ・TODO 状態・移動・archive などの編集を、
+  Emacs の org の操作と同じ結果になるように行う。agent が見出しやドロワ
+  ーを手で書く代わりに使う
 
 汎用化はしていない。下の構成と規約に揃えたリポジトリで使う前提で、
 ディレクトリ名や検査内容は設定で変えられない。
@@ -72,6 +75,20 @@ text と tree は、ヒットしたノートとリンクでつながる `notes/`
 `Links:` に並べる。順位には効かない。検索語が重ならなくても 1 手で届く
 ノートを見せるためのもの。
 
+## orgedit
+
+```console
+$ orgedit help
+$ orgedit set-property -now <ID> WORKING
+$ orgedit delete-property <ID> WORKING
+```
+
+見出しは `:ID:` で指し、書き換えたファイルをリポジトリルートからの相対
+パスで 1 行ずつ出す。git には触らない。読んでから書くまでの間に他の書き
+手がファイルを変えていたら、読み直してかけ直す。各操作が Emacs の org
+と同じ結果になることは、`internal/orgedit` の差分テストが batch の Emacs
+と突き合わせて確かめる。
+
 ## 開発
 
 ```console
@@ -81,10 +98,11 @@ $ nix flake check
 $ nix fmt
 ```
 
-`internal/org` の parser は、Emacs の org-element と木が一致するかを差分
-テストで確かめる。`emacs` が PATH に無ければ `go test` では飛ばし、
-`nix flake check` の `org-element-diff` が必ず走らせる。手元の org ファ
-イル群と比べるときは `ORG_DIFF_CORPUS=<dir>` を渡す。
+`internal/org` の parser は Emacs の org-element と木が、`internal/orgedit`
+の操作は Emacs の org と結果のファイルが一致するかを差分テストで確かめ
+る。`emacs` が PATH に無ければ `go test` では飛ばし、`nix flake check`
+の `org-element-diff` が必ず走らせる。手元の org ファイル群と比べるとき
+は `ORG_DIFF_CORPUS=<dir>` を渡す。
 
 ```console
 $ nix shell --inputs-from . nixpkgs#emacs-nox -c env ORG_DIFF_CORPUS=<dir> go test ./internal/org
