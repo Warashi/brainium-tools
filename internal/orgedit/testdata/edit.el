@@ -61,8 +61,10 @@ FIRST なら末尾ではなく先頭に移す。"
 org-refile と同じく、貼った見出しのタグを揃え直す。"
   (edit-goto-id file id)
   (org-cut-subtree)
-  (set-buffer (find-file-noselect sibling-file))
-  (goto-char (edit-id-pos sibling-file sibling-id))
+  ;; set-buffer の後は default-directory が変わるので、位置を先に求める
+  (let ((pos (edit-id-pos sibling-file sibling-id)))
+    (set-buffer (find-file-noselect sibling-file))
+    (goto-char pos))
   (org-paste-subtree (org-outline-level))
   (org-align-tags))
 

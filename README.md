@@ -86,6 +86,7 @@ $ orgedit delete-property <ID> WORKING
 $ orgedit todo <ID> DONE
 $ orgedit move <ID> -parent <節の ID> -first   # 節の先頭へ
 $ orgedit move <ID> -before <兄弟の ID>
+$ orgedit journal <capture の ID>   # :CAPTURED: の日のデイリーノートへ
 ```
 
 見出しは `:ID:` で指し、書き換えたファイルをリポジトリルートからの相対
