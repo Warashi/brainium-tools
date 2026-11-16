@@ -79,6 +79,7 @@ text と tree は、ヒットしたノートとリンクでつながる `notes/`
 
 ```console
 $ orgedit help
+$ orgedit list                     # ID を持つ見出しの一覧
 $ orgedit set-property -now <ID> WORKING
 $ orgedit delete-property <ID> WORKING
 $ orgedit todo <ID> DONE
