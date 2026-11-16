@@ -36,6 +36,13 @@
     (error "ID %s が %s に無い" id file))
   (org-back-to-heading t))
 
+(defun edit-todo (state)
+  "org-todo で STATE にし、記録が予約されていれば org-add-log-note で書く。
+batch では post-command-hook が走らないので、ここで呼ぶ。"
+  (org-todo state)
+  (when (memq 'org-add-log-note post-command-hook)
+    (org-add-log-note)))
+
 (defun edit-finish ()
   "開いた全バッファを保存する。"
   (save-some-buffers t))

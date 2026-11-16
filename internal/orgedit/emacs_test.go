@@ -37,6 +37,9 @@ type emacsCase struct {
 	// elisp は Emacs の操作。リポジトリルートを default-directory にして
 	// 評価する。
 	elisp string
+	// unchanged は、Emacs の操作がファイルを変えないケースかどうか。両方
+	// が何もせずに一致するのを防ぐため、それ以外は変わったことを確かめる。
+	unchanged bool
 }
 
 // lookEmacs は emacs のパスを返す。無ければテストを飛ばすが、
@@ -59,6 +62,9 @@ func runEmacsCases(t *testing.T, cases []emacsCase) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			want := runEmacsCase(t, emacs, c)
+			if same := equalFiles(want, c.files); same != c.unchanged {
+				t.Fatalf("Emacs の操作でファイルが変わったか = %v, want %v", !same, !c.unchanged)
+			}
 			got := runGoCase(t, c)
 			compareFiles(t, got, want)
 		})
@@ -165,6 +171,18 @@ func lineDiff(got, want string) string {
 		return b.String()
 	}
 	return "--- Go\n" + window(g) + "--- Emacs\n" + window(w)
+}
+
+func equalFiles(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for rel, s := range a {
+		if b[rel] != s {
+			return false
+		}
+	}
+	return true
 }
 
 func compareFiles(t *testing.T, got, want map[string]string) {

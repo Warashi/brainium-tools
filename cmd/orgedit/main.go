@@ -40,6 +40,7 @@ type context struct {
 var commands = map[string]command{
 	"set-property":    setPropertyCommand,
 	"delete-property": deletePropertyCommand,
+	"todo":            todoCommand,
 }
 
 func main() {

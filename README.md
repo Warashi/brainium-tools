@@ -81,6 +81,7 @@ text と tree は、ヒットしたノートとリンクでつながる `notes/`
 $ orgedit help
 $ orgedit set-property -now <ID> WORKING
 $ orgedit delete-property <ID> WORKING
+$ orgedit todo <ID> DONE
 ```
 
 見出しは `:ID:` で指し、書き換えたファイルをリポジトリルートからの相対

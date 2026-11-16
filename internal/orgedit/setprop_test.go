@@ -34,6 +34,6 @@ func TestSetPropertyMatchesEmacs(t *testing.T) {
 		put("ファイル末尾の見出し", "t-last", "WORKING", "[2026-11-16 Mon 21:15]"),
 		del("消す", "t-logged", "CURRENT_STEP"),
 		del("最後の 1 つを消すとドロワーも消える", "t-last", "ID"),
-		del("無い key", "t-tag", "WORKING"),
+		func() emacsCase { c := del("無い key", "t-tag", "WORKING"); c.unchanged = true; return c }(),
 	})
 }
