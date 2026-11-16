@@ -61,11 +61,17 @@ func runEmacsCases(t *testing.T, cases []emacsCase) {
 	emacs := lookEmacs(t)
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			want := runEmacsCase(t, emacs, c)
+			// archive の見出しは開いたファイルのパスを書くので、Emacs と Go
+			// を同じ home で順に走らせる
+			home := t.TempDir()
+			want := runEmacsCase(t, emacs, home, c)
+			if err := os.RemoveAll(filepath.Join(home, "repo")); err != nil {
+				t.Fatal(err)
+			}
 			if same := equalFiles(want, c.files); same != c.unchanged {
 				t.Fatalf("Emacs の操作でファイルが変わったか = %v, want %v", !same, !c.unchanged)
 			}
-			got := runGoCase(t, c)
+			got := runGoCase(t, home, c)
 			compareFiles(t, got, want)
 		})
 	}
@@ -91,9 +97,8 @@ func writeRepo(t *testing.T, home string, files map[string]string) string {
 	return root
 }
 
-func runEmacsCase(t *testing.T, emacs string, c emacsCase) map[string]string {
+func runEmacsCase(t *testing.T, emacs, home string, c emacsCase) map[string]string {
 	t.Helper()
-	home := t.TempDir()
 	root := writeRepo(t, home, c.files)
 	el, err := filepath.Abs("testdata/edit.el")
 	if err != nil {
@@ -114,9 +119,8 @@ func runEmacsCase(t *testing.T, emacs string, c emacsCase) map[string]string {
 	return readRepo(t, root)
 }
 
-func runGoCase(t *testing.T, c emacsCase) map[string]string {
+func runGoCase(t *testing.T, home string, c emacsCase) map[string]string {
 	t.Helper()
-	home := t.TempDir()
 	root := writeRepo(t, home, c.files)
 	if err := c.run(root, testEnv(home)); err != nil {
 		t.Fatal(err)

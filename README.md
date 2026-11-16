@@ -87,6 +87,7 @@ $ orgedit todo <ID> DONE
 $ orgedit move <ID> -parent <節の ID> -first   # 節の先頭へ
 $ orgedit move <ID> -before <兄弟の ID>
 $ orgedit journal <capture の ID>   # :CAPTURED: の日のデイリーノートへ
+$ orgedit archive <ID>             # <ファイル>_archive の末尾へ
 ```
 
 見出しは `:ID:` で指し、書き換えたファイルをリポジトリルートからの相対
@@ -94,6 +95,11 @@ $ orgedit journal <capture の ID>   # :CAPTURED: の日のデイリーノート
 手がファイルを変えていたら、読み直してかけ直す。各操作が Emacs の org
 と同じ結果になることは、`internal/orgedit` の差分テストが batch の Emacs
 と突き合わせて確かめる。
+
+archive は Emacs と同じく、`ARCHIVE_FILE` に開いたファイルのパスを
+home を `~` と略して書く。本人の Emacs と別のパスで開くコンテナなどで
+は、`ORGEDIT_ARCHIVE_FILE_ROOT` に本人の環境のリポジトリルート(例:
+`~/ghq/github.com/<owner>/<repo>`)を渡す。
 
 ## 開発
 

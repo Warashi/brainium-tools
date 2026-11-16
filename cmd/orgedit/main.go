@@ -45,6 +45,7 @@ var commands = map[string]command{
 	"move":            moveCommand,
 	"capture":         captureCommand,
 	"journal":         journalCommand,
+	"archive":         archiveCommand,
 }
 
 func main() {

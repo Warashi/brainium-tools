@@ -14,6 +14,10 @@ type Env struct {
 	NewID func() string
 	// Home は ARCHIVE_FILE で ~ と略す home ディレクトリ。
 	Home string
+	// ArchiveFileRoot は ARCHIVE_FILE に書くリポジトリルート。空なら実際
+	// のパスを書く。コンテナなど、本人の Emacs と別のパスで開いたときに、
+	// 本人の環境のパスを書くために使う。
+	ArchiveFileRoot string
 }
 
 // DefaultEnv は実行時の Env を返す。

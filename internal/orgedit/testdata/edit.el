@@ -78,6 +78,11 @@ org-refile と同じく、貼った見出しのタグを揃え直す。"
             :prepend t :empty-lines 1 :immediate-finish t))))
     (org-capture nil "x")))
 
+(defun edit-archive (file id)
+  "FILE の ID の subtree を org-archive-subtree で archive する。"
+  (edit-goto-id file id)
+  (org-archive-subtree))
+
 (defun edit-todo (state)
   "org-todo で STATE にし、記録が予約されていれば org-add-log-note で書く。
 batch では post-command-hook が走らないので、ここで呼ぶ。"
