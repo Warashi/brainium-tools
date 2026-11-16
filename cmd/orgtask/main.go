@@ -233,7 +233,7 @@ var claudeCommand = command{
 			return err
 		}
 		if len(t.Repos()) == 0 {
-			return fmt.Errorf("「%s」に :REPO: が無い。orgtask repo %s <リポジトリ>... で付けてから呼び直す", t.Heading(), t.ID)
+			return fmt.Errorf("「%s」の :REPO: にリポジトリが無い。Claude を起動するリポジトリを orgtask repo %s <リポジトリ>... で付けてから呼び直す", t.Heading(), t.ID)
 		}
 		return c.write(fmt.Sprintf("task: 「%s」を Claude に渡し、着手中の印を付ける", t.Heading()), func() ([]string, error) {
 			paths, err := orgedit.SetProperty(c.root, t.ID, "CURRENT_STEP", "")
@@ -247,9 +247,10 @@ var claudeCommand = command{
 }
 
 var repoCommand = command{
-	usage: "repo ID REPO...  task の :REPO: を、一手を実行するリポジトリ(github.com/<owner>/<repo>)にしてコミットする",
+	usage: "repo ID REPO...  task の :REPO: を、一手を実行するリポジトリ(github.com/<owner>/<repo>)にしてコミットする。リポジトリが要らなければ REPO を - 1 つにする",
 	run: func(c *context, usage string, args []string) error {
-		if len(args) < 2 || slices.ContainsFunc(args[1:], func(r string) bool { return strings.TrimSpace(r) == "" || strings.ContainsAny(r, " \t\n") }) {
+		invalid := func(r string) bool { return strings.TrimSpace(r) == "" || strings.ContainsAny(r, " \t\n") }
+		if len(args) < 2 || slices.ContainsFunc(args[1:], invalid) || len(args) > 2 && slices.Contains(args[1:], orgtask.NoRepo) {
 			return usageError(usage)
 		}
 		t, err := find(c, args[0])
@@ -334,7 +335,7 @@ func linkDescription(s string) string {
 // す。
 func printTask(w io.Writer, status string, t *orgtask.Task, withText bool) error {
 	var b strings.Builder
-	fmt.Fprintf(&b, "status: %s\nid: %s\ntitle: %s\n", status, t.ID, t.Heading())
+	fmt.Fprintf(&b, "status: %s\nid: %s\ntitle: %s\nlines: %s:%d-%d\n", status, t.ID, t.Heading(), orgtask.TasksFile, t.Line, t.EndLine)
 	for _, key := range []string{"REPO", "CURRENT_STEP", "WORKING"} {
 		if v := t.Props[key]; v != "" {
 			fmt.Fprintf(&b, "%s: %s\n", strings.ToLower(key), v)

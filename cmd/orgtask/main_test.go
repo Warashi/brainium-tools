@@ -105,7 +105,7 @@ func TestHandOutAndFinishAStep(t *testing.T) {
 	c, out := newRepo(t, tasks)
 
 	c.mustRun(t, "next")
-	if want := "status: candidate\nid: t-article\ntitle: 記事を書く\nrepo: github.com/x/blog\n\n** TODO [#A] 記事を書く\n"; !strings.HasPrefix(out.String(), want) {
+	if want := "status: candidate\nid: t-article\ntitle: 記事を書く\nlines: tasks.org:7-12\nrepo: github.com/x/blog\n\n** TODO [#A] 記事を書く\n"; !strings.HasPrefix(out.String(), want) {
 		t.Errorf("next:\n%s", out)
 	}
 
@@ -174,7 +174,7 @@ func TestHandToClaudeThenPickAnother(t *testing.T) {
 	c.mustRun(t, "repo", "t-daily", "github.com/x/home")
 	out.Reset()
 	c.mustRun(t, "next")
-	if !strings.HasPrefix(out.String(), "status: candidate\nid: t-daily\ntitle: 毎日の掃除\nrepo: github.com/x/home\n") {
+	if !strings.HasPrefix(out.String(), "status: candidate\nid: t-daily\ntitle: 毎日の掃除\nlines: tasks.org:15-20\nrepo: github.com/x/home\n") {
 		t.Errorf("next:\n%s", out)
 	}
 }
@@ -208,7 +208,7 @@ func TestStaleWorkingIsAskedThenKeptOrDropped(t *testing.T) {
 	src := strings.Replace(tasks, ":REPO:     github.com/x/blog", ":REPO:     github.com/x/blog\n:WORKING:  [2026-11-17 Tue 20:00]", 1)
 	c, out := newRepo(t, src)
 	c.mustRun(t, "next")
-	if out.String() != "status: stale-working\nid: t-article\ntitle: 記事を書く\nrepo: github.com/x/blog\nworking: [2026-11-17 Tue 20:00]\n" {
+	if out.String() != "status: stale-working\nid: t-article\ntitle: 記事を書く\nlines: tasks.org:7-13\nrepo: github.com/x/blog\nworking: [2026-11-17 Tue 20:00]\n" {
 		t.Errorf("next:\n%s", out)
 	}
 	out.Reset()
@@ -247,6 +247,7 @@ func TestArgumentErrors(t *testing.T) {
 		{"step", "t-article"},
 		{"step", "t-article", "two\nlines"},
 		{"repo", "t-article"},
+		{"repo", "t-article", "-", "github.com/x/a"},
 		{"unwork"},
 		{"current", "x"},
 	} {

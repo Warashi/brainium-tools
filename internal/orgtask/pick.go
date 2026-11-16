@@ -4,6 +4,8 @@
 package orgtask
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -14,6 +16,10 @@ import (
 
 // TasksFile は task を置くファイル。
 const TasksFile = "tasks.org"
+
+// NoRepo は、一手を実行するのにリポジトリが要らない task の :REPO: の値。
+// どの task とも衝突しない。
+const NoRepo = "-"
 
 // 候補を取る節の見出し。
 const (
@@ -39,6 +45,9 @@ const (
 // Task は tasks.org の見出し 1 つ。
 type Task struct {
 	orgedit.ListEntry
+	// Line と EndLine は subtree の最初と最後の行(1 始まり)。末尾の空
+	// 行は含めない。
+	Line, EndLine int
 }
 
 // Tasks は tasks.org の :ID: を持つ見出しを文書の順に持つ。
@@ -52,9 +61,18 @@ func Load(root string) (*Tasks, error) {
 	if err != nil {
 		return nil, err
 	}
+	data, err := os.ReadFile(filepath.Join(root, TasksFile))
+	if err != nil {
+		return nil, err
+	}
+	src := string(data)
 	ts := &Tasks{}
 	for _, e := range entries {
-		ts.All = append(ts.All, &Task{e})
+		// Text は :ID: を含むので、ファイルの中で 1 箇所に決まる
+		begin := strings.Index(src, e.Text)
+		line := strings.Count(src[:begin], "\n") + 1
+		end := line + strings.Count(strings.TrimRight(e.Text, "\n"), "\n")
+		ts.All = append(ts.All, &Task{ListEntry: e, Line: line, EndLine: end})
 	}
 	return ts, nil
 }
@@ -141,7 +159,7 @@ func (ts *Tasks) Pick(now time.Time, keep []string) Pick {
 }
 
 func found(t *Task, fromSomeday bool) Pick {
-	if len(t.Repos()) == 0 {
+	if t.Props["REPO"] == "" {
 		return Pick{Status: NeedRepo, Task: t, FromSomeday: fromSomeday}
 	}
 	return Pick{Status: Candidate, Task: t, FromSomeday: fromSomeday}
@@ -206,9 +224,9 @@ func (t *Task) due() string {
 	return t.planning("SCHEDULED")
 }
 
-// Repos は :REPO: に空白区切りで書いたリポジトリを返す。
+// Repos は :REPO: に空白区切りで書いたリポジトリを返す。NoRepo は除く。
 func (t *Task) Repos() []string {
-	return strings.Fields(t.Props["REPO"])
+	return slices.DeleteFunc(strings.Fields(t.Props["REPO"]), func(r string) bool { return r == NoRepo })
 }
 
 // HasTag は見出しにタグ tag が付いているかを返す。

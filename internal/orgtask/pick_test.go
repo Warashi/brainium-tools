@@ -163,6 +163,24 @@ func TestPickAsksForRepo(t *testing.T) {
 	}
 }
 
+func TestTasksWithoutRepositoriesDoNotConflict(t *testing.T) {
+	src := header +
+		task("TODO w", "w", ":WORKING: [2026-11-18 Wed 08:00]", ":REPO: "+NoRepo) +
+		task("TODO free", "free", ":REPO: "+NoRepo)
+	got := load(t, src).Pick(wednesday, nil)
+	if got.Status != Candidate || got.Task.ID != "free" {
+		t.Errorf("Pick = %s %v, want candidate free", got.Status, got.Task)
+	}
+}
+
+func TestLinesPointAtTheSubtree(t *testing.T) {
+	ts := load(t, header+task("TODO a", "a")+task("TODO b", "b"))
+	// header は 6 行、task は 5 行
+	if b := ts.ByID("b"); b.Line != 12 || b.EndLine != 16 {
+		t.Errorf("b の行 = %d-%d, want 12-16", b.Line, b.EndLine)
+	}
+}
+
 func TestPickFallsBackToSomeday(t *testing.T) {
 	src := header + task("TODO w", "w", ":WORKING: [2026-11-18 Wed 08:00]", ":REPO: r") + someday
 	got := load(t, src).Pick(wednesday, nil)

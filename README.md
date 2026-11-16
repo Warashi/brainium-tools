@@ -116,7 +116,7 @@ $ orgtask step <ID> '<一手>'       # :CURRENT_STEP: を書く
 $ orgtask drop-step
 $ orgtask done                     # 一手を capture し、その task を出す
 $ orgtask claude                   # :CURRENT_STEP: を :WORKING: に替える
-$ orgtask repo <ID> github.com/<owner>/<repo>...
+$ orgtask repo <ID> github.com/<owner>/<repo>...   # 要らなければ -
 $ orgtask unwork <ID>
 ```
 
@@ -126,7 +126,9 @@ $ orgtask unwork <ID>
 `:weekend:`、`:REPO:` が `:WORKING:` 付きの task と重なるものは外す。
 `Next` に候補が無ければ `Someday` の先頭を `Next` の末尾へ移す。出力の
 `status:` は `candidate`・`need-repo`(`:REPO:` が無い)・
-`stale-working`(今日より前の `:WORKING:` がある)・`none` のどれか。
+`stale-working`(今日より前の `:WORKING:` がある)・`none` のどれかで、
+task を出すときは `lines:` に `tasks.org` の行範囲を添える。`:REPO:` の
+`-` はリポジトリが要らないことを表し、どの task とも重ならない。
 
 書くサブコマンドは、書いたファイルだけを定型のメッセージでコミットする。
 書く前に、書くファイルにまだコミットされていない変更があれば、何も書か
