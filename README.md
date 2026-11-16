@@ -122,8 +122,9 @@ $ orgtask unwork <ID>
 
 `next` は `Next` 節の `TODO` / `WIP` を、優先度(無ければ B)、期日
 (`DEADLINE`、無ければ `SCHEDULED`)、`WIP`、`:handoff:`、ファイルの順
-で並べて先頭を選ぶ。`:WORKING:` 付き、`SCHEDULED` が未来、平日の
-`:weekend:`、`:REPO:` が `:WORKING:` 付きの task と重なるものは外す。
+で並べて先頭を選ぶ。期日は日付だけで比べる。`:WORKING:` 付き、
+`SCHEDULED` が未来(時刻があれば時刻まで見る)、平日の `:weekend:`、
+`:REPO:` が `:WORKING:` 付きの task と重なるものは外す。
 `Next` に候補が無ければ `Someday` の先頭を `Next` の末尾へ移す。出力の
 `status:` は `candidate`・`need-repo`(`:REPO:` が無い)・
 `stale-working`(今日より前の `:WORKING:` がある)・`none` のどれかで、

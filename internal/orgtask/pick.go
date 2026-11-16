@@ -137,7 +137,7 @@ func (ts *Tasks) Pick(now time.Time, keep []string) Pick {
 		if t.Todo != "TODO" && t.Todo != "WIP" || t.Props["WORKING"] != "" {
 			return false
 		}
-		if s := t.planning("SCHEDULED"); s != "" && s > today {
+		if t.scheduledAfter(now) {
 			return false
 		}
 		if t.HasTag("weekend") && now.Weekday() != time.Saturday && now.Weekday() != time.Sunday {
@@ -243,6 +243,8 @@ var (
 	cookieRe   = regexp.MustCompile(`^\[#[^]]+\] ?`)
 	dateRe     = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
 	planningRe = regexp.MustCompile(`^[ \t]*(?:(?:CLOSED|DEADLINE|SCHEDULED):[ \t]*[<\[][^]>]*[]>][ \t]*)+$`)
+	// clockRe は timestamp の日付と曜日に続く時刻(範囲なら始まり)。
+	clockRe = regexp.MustCompile(`^[ \t]*[<\[][0-9]{4}-[0-9]{2}-[0-9]{2}(?: +[^ \t0-9>\]]+)? +([0-9]{1,2}):([0-9]{2})`)
 	// repeaterRe は timestamp の中の repeater(+1d・++1w・.+1m など)。
 	repeaterRe = regexp.MustCompile(`<[^>]*[ \t](?:\.\+|\+\+|\+)[0-9]+[hdwmy][^>]*>`)
 )
@@ -270,6 +272,26 @@ func (t *Task) planning(keyword string) string {
 		return ""
 	}
 	return date(line[i:])
+}
+
+// scheduledAfter は SCHEDULED が now より後かを返す。時刻が無ければ日付
+// だけで比べる。
+func (t *Task) scheduledAfter(now time.Time) bool {
+	day := t.planning("SCHEDULED")
+	today := now.Format("2006-01-02")
+	if day != today {
+		return day > today
+	}
+	line := t.planningLine()
+	m := clockRe.FindStringSubmatch(line[strings.Index(line, "SCHEDULED:")+len("SCHEDULED:"):])
+	if m == nil {
+		return false
+	}
+	hour := m[1]
+	if len(hour) == 1 {
+		hour = "0" + hour
+	}
+	return hour+":"+m[2] > now.Format("15:04")
 }
 
 // Repeating は計画行に repeater があるかを返す。
