@@ -2,7 +2,7 @@
 // じ結果になるように書き換える。agent が見出しやドロワーを手で書く代わ
 // りに使う。
 //
-//	orgedit <subcommand> [flags] [args]
+//	orgedit [-C DIR] <subcommand> [flags] [args]
 //
 // 見出しは :ID: で指す。書き換えたファイルを、リポジトリルートからの相
 // 対パスで 1 行ずつ出す。git には触らない。読んでから書くまでの間に他の
@@ -50,19 +50,29 @@ var commands = map[string]command{
 }
 
 func main() {
-	wd, err := os.Getwd()
-	if err == nil {
-		var root string
-		root, err = repo.Root(wd)
-		if err == nil {
-			c := &context{root: root, env: orgedit.DefaultEnv(), in: os.Stdin, out: os.Stdout}
-			err = execute(c, os.Args[1:])
-		}
-	}
-	if err != nil {
+	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "orgedit:", err)
 		os.Exit(2)
 	}
+}
+
+// run は先頭の -C DIR を読み、DIR(無ければ作業ディレクトリ)を含むリポ
+// ジトリでサブコマンドを実行する。他のリポジトリで作業しているセッショ
+// ンが、作業ディレクトリを変えずに呼べるようにする。
+func run(args []string) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if len(args) >= 2 && args[0] == "-C" {
+		dir, args = args[1], args[2:]
+	}
+	root, err := repo.Root(dir)
+	if err != nil {
+		return err
+	}
+	c := &context{root: root, env: orgedit.DefaultEnv(), in: os.Stdin, out: os.Stdout}
+	return execute(c, args)
 }
 
 func execute(c *context, args []string) error {
@@ -78,7 +88,8 @@ func execute(c *context, args []string) error {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "使い方: orgedit <subcommand> [flags] [args]")
+	fmt.Fprintln(w, "使い方: orgedit [-C DIR] <subcommand> [flags] [args]")
+	fmt.Fprintln(w, "  -C DIR  DIR を含むリポジトリで実行する。省略時は作業ディレクトリ")
 	names := make([]string, 0, len(commands))
 	for name := range commands {
 		names = append(names, name)

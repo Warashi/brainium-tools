@@ -121,3 +121,17 @@ func TestHelpListsEveryCommand(t *testing.T) {
 		}
 	}
 }
+
+func TestRunInAnotherRepository(t *testing.T) {
+	c, _ := newContext(t, "")
+	if err := os.MkdirAll(filepath.Join(c.root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"-C", c.root, "set-property", "sec-next", "WORKING", "x"}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(c.root, "tasks.org"))
+	if !strings.Contains(string(data), ":WORKING:  x") {
+		t.Errorf("tasks.org:\n%s", data)
+	}
+}
