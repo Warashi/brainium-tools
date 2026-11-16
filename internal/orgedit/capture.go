@@ -12,7 +12,8 @@ const InboxFile = "inbox.org"
 
 // Capture は inbox.org の先頭に、title の見出しと body の本文の entry を
 // 足す。見出しの直後の PROPERTIES ドロワーに新しい :ID: と :CAPTURED:
-// を入れ、本文は orglint と同じ幅で折り返す。足した entry の ID を返す。
+// を入れ、本文は orglint と同じ幅で折り返す。本文には深さ 2 以上の子の
+// 見出しを書ける。足した entry の ID を返す。
 //
 // org-capture で次の template を :prepend t :empty-lines 1 で使ったとき
 // と同じ形になる。
@@ -31,8 +32,8 @@ func Capture(root string, env Env, title, body string) (string, []string, error)
 	}
 	body = strings.Trim(body, "\n")
 	for _, line := range strings.Split(body, "\n") {
-		if starsRe.MatchString(line) {
-			return "", nil, fmt.Errorf("本文に見出しの行がある: %q", line)
+		if m := starsRe.FindStringSubmatch(line); m != nil && len(m[1]) == 1 {
+			return "", nil, fmt.Errorf("本文に深さ 1 の見出しがある。子の見出しは ** から書く: %q", line)
 		}
 	}
 	id := env.NewID()

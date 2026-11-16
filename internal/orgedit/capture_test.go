@@ -21,6 +21,7 @@ func TestCaptureMatchesEmacs(t *testing.T) {
 	runEmacsCases(t, []emacsCase{
 		capture("先頭に足す", inboxOrg, "作業の記録", "[[id:t-tag][task]] の一手。\n\n- 箇条 1\n- 箇条 2"),
 		capture("本文なし", inboxOrg, "本文の無い capture", ""),
+		capture("子の見出し", inboxOrg, "レビュー", "対象: [[id:t-tag][task]]\n\n** Pros\n- 良い\n** Cons\n- 悪い"),
 		capture("空の inbox", header, "最初の capture", "本文。"),
 		capture("改行で終わらない空の inbox", header[:len(header)-1], "最初の capture", "本文。"),
 		capture("空行で終わる空の inbox", header+"\n", "最初の capture", "本文。"),
@@ -46,10 +47,10 @@ func TestCaptureFillsTheBody(t *testing.T) {
 	}
 }
 
-func TestCaptureRejectsHeadingsInTheBody(t *testing.T) {
+func TestCaptureRejectsTopLevelHeadingsInTheBody(t *testing.T) {
 	home := t.TempDir()
 	root := writeRepo(t, home, map[string]string{"inbox.org": inboxOrg})
 	if _, _, err := Capture(root, testEnv(home), "見出し", "本文\n* 見出しの行"); err == nil {
-		t.Error("本文の見出しの行を受け付けた")
+		t.Error("本文の深さ 1 の見出しを受け付けた")
 	}
 }
