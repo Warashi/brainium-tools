@@ -203,3 +203,5 @@ func compareFiles(t *testing.T, got, want map[string]string) {
 		}
 	}
 }
+
+func contains(s, sub string) bool { return strings.Contains(s, sub) }

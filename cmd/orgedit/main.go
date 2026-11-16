@@ -43,6 +43,7 @@ var commands = map[string]command{
 	"todo":            todoCommand,
 	"list":            listCommand,
 	"move":            moveCommand,
+	"capture":         captureCommand,
 }
 
 func main() {

@@ -80,6 +80,7 @@ text と tree は、ヒットしたノートとリンクでつながる `notes/`
 ```console
 $ orgedit help
 $ orgedit list                     # ID を持つ見出しの一覧
+$ orgedit capture -title '見出し' < body.txt   # 1 行目に新しい ID
 $ orgedit set-property -now <ID> WORKING
 $ orgedit delete-property <ID> WORKING
 $ orgedit todo <ID> DONE

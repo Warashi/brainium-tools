@@ -66,6 +66,16 @@ org-refile と同じく、貼った見出しのタグを揃え直す。"
   (org-paste-subtree (org-outline-level))
   (org-align-tags))
 
+(defun edit-capture (title body)
+  "inbox.org の先頭に、orgedit capture と同じ template で capture する。"
+  (let ((org-capture-templates
+         `(("x" "inbox" entry (file ,(expand-file-name "inbox.org"))
+            ,(concat "* " title "\n:PROPERTIES:\n:ID:       %(org-id-new)\n"
+                     ":CAPTURED: %U\n:END:\n"
+                     (if (string= body "") "" (concat "\n" body "\n")))
+            :prepend t :empty-lines 1 :immediate-finish t))))
+    (org-capture nil "x")))
+
 (defun edit-todo (state)
   "org-todo で STATE にし、記録が予約されていれば org-add-log-note で書く。
 batch では post-command-hook が走らないので、ここで呼ぶ。"
