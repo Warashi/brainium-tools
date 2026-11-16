@@ -36,6 +36,36 @@
     (error "ID %s が %s に無い" id file))
   (org-back-to-heading t))
 
+(defun edit-id-pos (file id)
+  "FILE の :ID: が ID の見出しの位置を、今のバッファを変えずに返す。"
+  (with-current-buffer (find-file-noselect file)
+    (save-excursion
+      (goto-char (point-min))
+      (unless (re-search-forward
+               (concat "^[ \t]*:ID:[ \t]+" (regexp-quote id) "[ \t]*$") nil t)
+        (error "ID %s が %s に無い" id file))
+      (org-back-to-heading t)
+      (point))))
+
+(defun edit-refile (file id target-file &optional target-id first)
+  "FILE の ID の subtree を org-refile で TARGET-FILE へ移す。
+TARGET-ID があればその見出しの子に、無ければファイルの深さ 1 に移す。
+FIRST なら末尾ではなく先頭に移す。"
+  (let ((pos (and target-id (edit-id-pos target-file target-id)))
+        (org-reverse-note-order first))
+    (edit-goto-id file id)
+    (org-refile nil nil (list "target" (expand-file-name target-file) nil pos))))
+
+(defun edit-move-before (file id sibling-file sibling-id)
+  "FILE の ID の subtree を切り取り、SIBLING-ID の見出しの手前に同じ深さで貼る。
+org-refile と同じく、貼った見出しのタグを揃え直す。"
+  (edit-goto-id file id)
+  (org-cut-subtree)
+  (set-buffer (find-file-noselect sibling-file))
+  (goto-char (edit-id-pos sibling-file sibling-id))
+  (org-paste-subtree (org-outline-level))
+  (org-align-tags))
+
 (defun edit-todo (state)
   "org-todo で STATE にし、記録が予約されていれば org-add-log-note で書く。
 batch では post-command-hook が走らないので、ここで呼ぶ。"

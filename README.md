@@ -83,6 +83,8 @@ $ orgedit list                     # ID を持つ見出しの一覧
 $ orgedit set-property -now <ID> WORKING
 $ orgedit delete-property <ID> WORKING
 $ orgedit todo <ID> DONE
+$ orgedit move <ID> -parent <節の ID> -first   # 節の先頭へ
+$ orgedit move <ID> -before <兄弟の ID>
 ```
 
 見出しは `:ID:` で指し、書き換えたファイルをリポジトリルートからの相対

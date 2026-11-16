@@ -42,6 +42,7 @@ var commands = map[string]command{
 	"delete-property": deletePropertyCommand,
 	"todo":            todoCommand,
 	"list":            listCommand,
+	"move":            moveCommand,
 }
 
 func main() {
