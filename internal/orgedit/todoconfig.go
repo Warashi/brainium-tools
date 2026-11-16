@@ -12,6 +12,8 @@ import (
 type todoConfig struct {
 	keywords []string
 	done     map[string]bool
+	// head はキーワードから、その系列の先頭のキーワードを引く。
+	head map[string]string
 	// logState は org-todo-log-states。その状態に入るときに記録を残す
 	// キーワード。
 	logState map[string]bool
@@ -28,7 +30,7 @@ var todoDefRe = regexp.MustCompile(`^(.*?)(?:\((.*)\))?$`)
 // (TODO | DONE、記録なし)から始め、#+STARTUP の logdone・logdrawer な
 // どで上書きする。
 func readTodoConfig(root *org.Node) (todoConfig, error) {
-	c := todoConfig{done: map[string]bool{}, logState: map[string]bool{}}
+	c := todoConfig{done: map[string]bool{}, logState: map[string]bool{}, head: map[string]string{}}
 	var sequences [][]string
 	var startup []string
 	walkKeywords(root, func(k *org.Node) {
@@ -53,12 +55,17 @@ func readTodoConfig(root *org.Node) (todoConfig, error) {
 			// | が無ければ最後の語が完了の状態
 			bar = len(words) - 2
 		}
+		first := ""
 		for i, w := range words {
 			if w == "|" {
 				continue
 			}
 			m := todoDefRe.FindStringSubmatch(w)
 			name, spec := m[1], m[2]
+			if first == "" {
+				first = name
+			}
+			c.head[name] = first
 			c.keywords = append(c.keywords, name)
 			if i > bar {
 				c.done[name] = true

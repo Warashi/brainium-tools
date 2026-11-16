@@ -11,7 +11,8 @@ import (
 // SetTodo は :ID: が id の見出しの TODO キーワードを state にする。state
 // が空ならキーワードを外す。org-todo と同じく、完了の状態に入れば
 // CLOSED を足し、未完了の状態に戻れば CLOSED を消し、! の付いた状態に入
-// れば LOGBOOK に記録を足し、タグを揃え直す。
+// れば LOGBOOK に記録を足し、タグを揃え直す。計画行に repeater があれば、
+// 完了にする代わりに repeat で次の回へ進める。
 func SetTodo(root string, env Env, id, state string) ([]string, error) {
 	return Update(root, func(f *Files) error {
 		e, err := Find(f, id)
@@ -43,11 +44,20 @@ func setTodo(src string, root *org.Node, id, state string, env Env) (string, err
 	old := parseHeading(src[start:end], c.keywords).todo
 	src = src[:start] + realignTags(replaceTodo(src[start:end], c.keywords, state)) + src[end:]
 
+	nowDone := c.done[state] && !c.done[old]
+	if nowDone {
+		_, h, err := reparse(src, id)
+		if err != nil {
+			return "", err
+		}
+		if repeating(src, h) {
+			return repeat(src, id, c, state, old, env)
+		}
+	}
 	logging := len(c.logState) > 0 || c.logDone
 	if !logging {
 		return src, nil
 	}
-	nowDone := c.done[state] && !c.done[old]
 	becameTodo := state == "" || (!c.done[state] && (old == "" || c.done[old]))
 	if becameTodo {
 		if _, h, err = reparse(src, id); err != nil {
