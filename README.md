@@ -16,6 +16,9 @@ org-mode で書いた個人の知識リポジトリ(brainium 形式)を扱う Go
 - `orgedit` — capture・プロパティ・TODO 状態・移動・archive などの編集を、
   Emacs の org の操作と同じ結果になるように行う。agent が見出しやドロワ
   ーを手で書く代わりに使う
+- `orgtask` — first-step が次に一手を切り出す task を `tasks.org` から選
+  び、`:CURRENT_STEP:` などの書き込みと完了の capture とコミットまでを
+  決定的に行う
 
 汎用化はしていない。下の構成と規約に揃えたリポジトリで使う前提で、
 ディレクトリ名や検査内容は設定で変えられない。
@@ -103,6 +106,31 @@ archive は Emacs と同じく、`ARCHIVE_FILE` に開いたファイルのパ�
 home を `~` と略して書く。本人の Emacs と別のパスで開くコンテナなどで
 は、`ORGEDIT_ARCHIVE_FILE_ROOT` に本人の環境のリポジトリルート(例:
 `~/ghq/github.com/<owner>/<repo>`)を渡す。
+
+## orgtask
+
+```console
+$ orgtask next [-keep-working <ID>]...   # 一手を切り出す task を選んで出す
+$ orgtask current                  # :CURRENT_STEP: のある task
+$ orgtask step <ID> '<一手>'       # :CURRENT_STEP: を書く
+$ orgtask drop-step
+$ orgtask done                     # 一手を capture し、その task を出す
+$ orgtask claude                   # :CURRENT_STEP: を :WORKING: に替える
+$ orgtask repo <ID> github.com/<owner>/<repo>...
+$ orgtask unwork <ID>
+```
+
+`next` は `Next` 節の `TODO` / `WIP` を、優先度(無ければ B)、期日
+(`DEADLINE`、無ければ `SCHEDULED`)、`WIP`、`:handoff:`、ファイルの順
+で並べて先頭を選ぶ。`:WORKING:` 付き、`SCHEDULED` が未来、平日の
+`:weekend:`、`:REPO:` が `:WORKING:` 付きの task と重なるものは外す。
+`Next` に候補が無ければ `Someday` の先頭を `Next` の末尾へ移す。出力の
+`status:` は `candidate`・`need-repo`(`:REPO:` が無い)・
+`stale-working`(今日より前の `:WORKING:` がある)・`none` のどれか。
+
+書くサブコマンドは、書いたファイルだけを定型のメッセージでコミットする。
+書く前に、書くファイルにまだコミットされていない変更があれば、何も書か
+ずに終了コード 3 で止まる。
 
 ## 開発
 

@@ -25,6 +25,7 @@
         "notetree"
         "notesearch-eval"
         "orgedit"
+        "orgtask"
       ];
     in
     {
@@ -40,6 +41,8 @@
             version = "0.1.0";
             src = self;
             vendorHash = null;
+            # orgtask のテストが一時リポジトリにコミットする
+            nativeCheckInputs = [ pkgs.git ];
           };
         in
         {
