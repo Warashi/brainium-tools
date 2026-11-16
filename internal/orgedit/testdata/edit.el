@@ -1,6 +1,6 @@
 ;;; edit.el --- orgedit の正解を Emacs の org で作る -*- lexical-binding: t -*-
 
-;; 差分テストが --eval で渡す操作の前に読み込む。時刻を固定し、ID の見出
+;; 差分テストが渡す操作の前に読み込む。時刻を固定し、ID の見出
 ;; しへ移る補助を用意する。操作の後は edit-finish で全バッファを保存する。
 
 (require 'org)
@@ -8,6 +8,14 @@
 (require 'org-archive)
 (require 'org-refile)
 (require 'org-capture)
+
+
+;; nix のサンドボックスはロケールが UTF-8 でなく、保存時に文字コードを尋ね
+;; て止まるので固定する
+(set-language-environment "UTF-8")
+(prefer-coding-system 'utf-8-unix)
+(setq-default buffer-file-coding-system 'utf-8-unix)
+(setq file-name-coding-system 'utf-8)
 
 (setq make-backup-files nil
       create-lockfiles nil

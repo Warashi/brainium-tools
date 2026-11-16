@@ -63,7 +63,7 @@ func runEmacsCases(t *testing.T, cases []emacsCase) {
 		t.Run(c.name, func(t *testing.T) {
 			// archive の見出しは開いたファイルのパスを書くので、Emacs と Go
 			// を同じ home で順に走らせる
-			home := t.TempDir()
+			home := asciiTempDir(t)
 			want := runEmacsCase(t, emacs, home, c)
 			if err := os.RemoveAll(filepath.Join(home, "repo")); err != nil {
 				t.Fatal(err)
@@ -75,6 +75,19 @@ func runEmacsCases(t *testing.T, cases []emacsCase) {
 			compareFiles(t, got, want)
 		})
 	}
+}
+
+// asciiTempDir は ASCII だけの名前の一時ディレクトリを作る。t.TempDir
+// はテスト名を含み、UTF-8 でないロケールの Emacs はそのパスを復号できな
+// い。
+func asciiTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "orgedit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	return dir
 }
 
 // writeRepo は home の下にリポジトリを作り、そのルートを返す。ARCHIVE_FILE
@@ -108,8 +121,14 @@ func runEmacsCase(t *testing.T, emacs, home string, c emacsCase) map[string]stri
 	for _, id := range testIDs {
 		ids = append(ids, strconv.Quote(id))
 	}
-	form := "(progn (setq edit-ids (list " + strings.Join(ids, " ") + ")) " + c.elisp + " (edit-finish))"
-	cmd := exec.Command(emacs, "-Q", "--batch", "-l", el, "--eval", form)
+	// --eval の引数はロケールで復号されるので、UTF-8 でないサンドボックス
+	// でも日本語が壊れないよう、UTF-8 のファイルに書いて読ませる
+	form := filepath.Join(home, "case.el")
+	body := ";; -*- coding: utf-8; lexical-binding: t -*-\n(setq edit-ids (list " + strings.Join(ids, " ") + "))\n" + c.elisp + "\n(edit-finish)\n"
+	if err := os.WriteFile(form, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(emacs, "-Q", "--batch", "-l", el, "-l", form)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "HOME="+home, "TZ=UTC")
 	out, err := cmd.CombinedOutput()
