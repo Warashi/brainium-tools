@@ -3,6 +3,8 @@ package orglint
 import (
 	"regexp"
 	"unicode"
+
+	"github.com/Warashi/brainium-tools/internal/textwidth"
 )
 
 // noWrapRe は途中で折り返せない範囲。URL だけを 1 かたまりとして扱う。
@@ -145,7 +147,7 @@ func kinsokuShorter(rs []rune, at int) int {
 // breakable は禁則処理の走査で折り返してよい位置かを返す。空白の位置
 // と全角文字の直後が候補になる。
 func breakable(rs []rune, i int) bool {
-	return i > 0 && (unicode.IsSpace(rs[i-1]) || runeWidth(rs[i-1]) == 2)
+	return i > 0 && (unicode.IsSpace(rs[i-1]) || textwidth.Rune(rs[i-1]) == 2)
 }
 
 // isBreakPoint は rs[i] の直前で折り返せるかを返す。禁則は考慮せず、
@@ -160,7 +162,7 @@ func isBreakPoint(rs []rune, i int, spans [][2]int) bool {
 		return true
 	}
 	// 欧文の単語の途中では折り返さない。
-	return runeWidth(rs[i-1]) == 2 || runeWidth(rs[i]) == 2
+	return textwidth.Rune(rs[i-1]) == 2 || textwidth.Rune(rs[i]) == 2
 }
 
 func containsRune(set string, r rune) bool {

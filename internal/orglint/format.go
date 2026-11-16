@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Warashi/brainium-tools/internal/org"
+	"github.com/Warashi/brainium-tools/internal/textwidth"
 )
 
 // Format は本文の段落を fillColumn で折り返し直した内容を返す。見出し・
@@ -94,7 +95,7 @@ func fillOnce(para []string, indent string) []string {
 		ind := []rune(indent)
 		indWidths := make([]int, len(ind))
 		for i, r := range ind {
-			indWidths[i] = runeWidth(r)
+			indWidths[i] = textwidth.Rune(r)
 		}
 		rs = append(ind, rs[at:]...)
 		ws = append(indWidths, ws[at:]...)
