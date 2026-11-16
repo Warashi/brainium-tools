@@ -94,6 +94,26 @@ func TestFlagsMayFollowTheID(t *testing.T) {
 	}
 }
 
+func TestPrioritySetsAndRemovesTheCookie(t *testing.T) {
+	c, _ := newContext(t, "本文。\n")
+	for _, step := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"capture", "-title", "作業"}, "* 作業\n"},
+		{[]string{"priority", "new-id", "A"}, "* [#A] 作業\n"},
+		{[]string{"priority", "new-id", "-none"}, "* 作業\n"},
+	} {
+		if err := execute(c, step.args); err != nil {
+			t.Fatalf("%v: %v", step.args, err)
+		}
+		data, _ := os.ReadFile(filepath.Join(c.root, "inbox.org"))
+		if !strings.Contains(string(data), step.want) {
+			t.Errorf("%v の後の inbox.org:\n%s", step.args, data)
+		}
+	}
+}
+
 func TestArgumentErrors(t *testing.T) {
 	for _, args := range [][]string{
 		{"nope"},
@@ -102,6 +122,7 @@ func TestArgumentErrors(t *testing.T) {
 		{"move", "id", "-parent", "a", "-before", "b"},
 		{"set-property", "id", "KEY"},
 		{"capture"},
+		{"priority", "id"},
 	} {
 		c, _ := newContext(t, "")
 		if err := execute(c, args); err == nil {
