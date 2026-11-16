@@ -19,6 +19,14 @@ type ListEntry struct {
 	Todo    string
 	Title   string
 	Tags    string
+	// Level は見出しの深さ。
+	Level int
+	// Priority は優先度 cookie の値。cookie が無ければ空。
+	Priority string
+	// Props は PROPERTIES ドロワーの値。key は書かれたとおり。
+	Props map[string]string
+	// Text は見出しの行から子孫を含む subtree の終わりまで。
+	Text string
 }
 
 // List は files(リポジトリルートからの相対パス)の、:ID: を持つ見出し
@@ -48,6 +56,8 @@ func List(root string, files []string) ([]ListEntry, error) {
 					entries = append(entries, ListEntry{
 						ID: id, Path: rel, Outline: strings.Join(outline, "/"),
 						Todo: hd.todo, Title: hd.rest, Tags: hd.tags,
+						Level: h.Level, Priority: priorityOf(hd.rest),
+						Props: properties(h), Text: src[h.Begin:h.End],
 					})
 				}
 				walk(h, append(outline[:len(outline):len(outline)], hd.rest))
@@ -67,4 +77,24 @@ func WriteList(w io.Writer, entries []ListEntry) error {
 		}
 	}
 	return nil
+}
+
+// priorityOf は見出しの残りの先頭にある優先度 cookie の値を返す。
+func priorityOf(rest string) string {
+	m := priorityRe.FindString(rest)
+	if m == "" {
+		return ""
+	}
+	return strings.TrimSpace(m)[2 : len(strings.TrimSpace(m))-1]
+}
+
+// properties は見出しの PROPERTIES ドロワーの key と値を返す。
+func properties(h *org.Node) map[string]string {
+	props := map[string]string{}
+	if drawer := org.HeadlineProperties(h); drawer != nil {
+		for _, p := range drawer.Children {
+			props[p.Key] = p.Value
+		}
+	}
+	return props
 }
