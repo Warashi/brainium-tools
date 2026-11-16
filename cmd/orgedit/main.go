@@ -46,6 +46,7 @@ var commands = map[string]command{
 	"capture":         captureCommand,
 	"journal":         journalCommand,
 	"archive":         archiveCommand,
+	"set-tags":        setTagsCommand,
 }
 
 func main() {
@@ -101,6 +102,22 @@ func parse(flags *flag.FlagSet, usage string, args []string, n int) ([]string, e
 		return nil, fmt.Errorf("引数の数が違う。使い方: %s", usage)
 	}
 	return flags.Args(), nil
+}
+
+// takeFlag は真偽の flag -name を、引数のどこにあっても取り除く。flag
+// パッケージは位置引数の後ろの flag を読まないので、ID の後に書いても効
+// くようにする。
+func takeFlag(args []string, name string) ([]string, bool) {
+	var rest []string
+	found := false
+	for _, a := range args {
+		if a == "-"+name || a == "--"+name {
+			found = true
+			continue
+		}
+		rest = append(rest, a)
+	}
+	return rest, found
 }
 
 // printChanged は書き換えたファイルを 1 行ずつ出す。

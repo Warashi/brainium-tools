@@ -12,11 +12,13 @@ var setPropertyCommand = command{
 	run: func(c *context, usage string, args []string) error {
 		flags := flag.NewFlagSet("set-property", flag.ContinueOnError)
 		now := flags.Bool("now", false, "VALUE の代わりに今の時刻 [YYYY-MM-DD Day HH:MM] を入れる")
+		args, withNow := takeFlag(args, "now")
 		n := 3
-		if len(args) > 0 && (args[0] == "-now" || args[0] == "--now") {
+		if withNow {
 			n = 2
 		}
 		rest, err := parse(flags, usage, args, n)
+		*now = withNow
 		if err != nil {
 			return err
 		}

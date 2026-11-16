@@ -43,20 +43,22 @@ func TestCaptureThenRefileAndClose(t *testing.T) {
 		{"capture", "-title", "作業"},
 		{"move", "new-id", "-parent", "sec-next"},
 		{"todo", "new-id", "TODO"},
-		{"set-property", "-now", "new-id", "WORKING"},
+		{"set-property", "new-id", "WORKING", "-now"},
 		{"delete-property", "new-id", "WORKING"},
 		{"todo", "new-id", "DONE"},
+		{"set-tags", "new-id", "handoff"},
 	}
 	for _, args := range steps {
 		if err := execute(c, args); err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
 	}
-	if want := "new-id\ninbox.org\ntasks.org\ninbox.org\ntasks.org\ntasks.org\ntasks.org\ntasks.org\n"; out.String() != want {
+	if want := "new-id\ninbox.org\ntasks.org\ninbox.org\ntasks.org\ntasks.org\ntasks.org\ntasks.org\ntasks.org\n"; out.String() != want {
 		t.Errorf("出力 = %q, want %q", out.String(), want)
 	}
 	data, _ := os.ReadFile(filepath.Join(c.root, "tasks.org"))
-	want := tasks + `** DONE 作業
+	// 表示幅 12 の見出しの後ろに、:handoff: の右端が 77 桁になるだけ空ける
+	want := tasks + "** DONE 作業" + strings.Repeat(" ", 77-12-len(":handoff:")) + `:handoff:
 CLOSED: [2026-11-16 Mon 21:08]
 :PROPERTIES:
 :ID:       new-id
@@ -72,6 +74,23 @@ CLOSED: [2026-11-16 Mon 21:08]
 `
 	if string(data) != want {
 		t.Errorf("tasks.org:\n%s", data)
+	}
+}
+
+func TestFlagsMayFollowTheID(t *testing.T) {
+	c, _ := newContext(t, "本文。\n")
+	for _, args := range [][]string{
+		{"capture", "-title", "作業"},
+		{"set-property", "new-id", "WORKING", "-now"},
+		{"todo", "new-id", "-none"},
+	} {
+		if err := execute(c, args); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	data, _ := os.ReadFile(filepath.Join(c.root, "inbox.org"))
+	if !strings.Contains(string(data), ":WORKING:  [2026-11-16 Mon 21:08]") {
+		t.Errorf("inbox.org:\n%s", data)
 	}
 }
 

@@ -11,11 +11,13 @@ var todoCommand = command{
 	run: func(c *context, usage string, args []string) error {
 		flags := flag.NewFlagSet("todo", flag.ContinueOnError)
 		none := flags.Bool("none", false, "キーワードを外す")
+		args, withNone := takeFlag(args, "none")
 		n := 2
-		if len(args) > 0 && (args[0] == "-none" || args[0] == "--none") {
+		if withNone {
 			n = 1
 		}
 		rest, err := parse(flags, usage, args, n)
+		*none = withNone
 		if err != nil {
 			return err
 		}

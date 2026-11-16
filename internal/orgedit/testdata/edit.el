@@ -91,6 +91,11 @@ org-refile と同じく、貼った見出しのタグを揃え直す。"
   (edit-goto-id file id)
   (org-archive-subtree))
 
+(defun edit-set-tags (file id tags)
+  "FILE の ID の見出しのタグを org-set-tags で TAGS にする。"
+  (edit-goto-id file id)
+  (org-set-tags tags))
+
 (defun edit-todo (state)
   "org-todo で STATE にし、記録が予約されていれば org-add-log-note で書く。
 batch では post-command-hook が走らないので、ここで呼ぶ。"

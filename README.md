@@ -84,6 +84,7 @@ $ orgedit capture -title '見出し' < body.txt   # 1 行目に新しい ID
 $ orgedit set-property -now <ID> WORKING
 $ orgedit delete-property <ID> WORKING
 $ orgedit todo <ID> DONE
+$ orgedit set-tags <ID> handoff weekend
 $ orgedit move <ID> -parent <節の ID> -first   # 節の先頭へ
 $ orgedit move <ID> -before <兄弟の ID>
 $ orgedit journal <capture の ID>   # :CAPTURED: の日のデイリーノートへ
