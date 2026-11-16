@@ -124,8 +124,8 @@ $ orgtask unwork <ID>
 (`DEADLINE`、無ければ `SCHEDULED`)、`WIP`、`:handoff:`、ファイルの順
 で並べて先頭を選ぶ。期日は日付だけで比べる。`:WORKING:` 付き、
 `SCHEDULED` が未来(時刻があれば時刻まで見る)、平日の `:weekend:`、
-`:REPO:` が `:WORKING:` 付きの task と重なるものは外す。
-`Next` に候補が無ければ `Someday` の先頭を `Next` の末尾へ移す。出力の
+`:REPO:` が `:WORKING:` 付きの task と重なるものは外す。完了した task
+の `:WORKING:` は見ない。`Next` に候補が無ければ `Someday` の先頭を `Next` の末尾へ移す。出力の
 `status:` は `candidate`・`need-repo`(`:REPO:` が無い)・
 `stale-working`(今日より前の `:WORKING:` がある)・`none` のどれかで、
 task を出すときは `lines:` に `tasks.org` の行範囲を添える。`:REPO:` の

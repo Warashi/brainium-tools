@@ -123,7 +123,7 @@ func (ts *Tasks) Pick(now time.Time, keep []string) Pick {
 	busy := map[string]bool{}
 	for _, t := range ts.All {
 		w := t.Props["WORKING"]
-		if w == "" {
+		if w == "" || !t.open() {
 			continue
 		}
 		if date(w) < today && !slices.Contains(keep, t.ID) {
@@ -134,7 +134,7 @@ func (ts *Tasks) Pick(now time.Time, keep []string) Pick {
 		}
 	}
 	eligible := func(t *Task) bool {
-		if t.Todo != "TODO" && t.Todo != "WIP" || t.Props["WORKING"] != "" {
+		if !t.open() || t.Props["WORKING"] != "" {
 			return false
 		}
 		if t.scheduledAfter(now) {
@@ -205,6 +205,11 @@ func first(a, b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// open は未完了(TODO か WIP)の task かを返す。
+func (t *Task) open() bool {
+	return t.Todo == "TODO" || t.Todo == "WIP"
 }
 
 // priority は org の既定(org-priority-default)と同じく、cookie が無け

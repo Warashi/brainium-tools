@@ -156,6 +156,17 @@ func TestPickTakesWeekendTasksOnWeekends(t *testing.T) {
 	}
 }
 
+func TestPickIgnoresWorkingOnClosedTasks(t *testing.T) {
+	src := header +
+		task("DONE old", "old", ":WORKING: [2026-11-17 Tue 23:00]", ":REPO: github.com/x/a") +
+		task("CANCELLED now", "now", ":WORKING: [2026-11-18 Wed 08:00]", ":REPO: github.com/x/a") +
+		task("TODO same", "same", ":REPO: github.com/x/a")
+	got := load(t, src).Pick(wednesday, nil)
+	if got.Status != Candidate || got.Task.ID != "same" {
+		t.Errorf("Pick = %s %v, want candidate same", got.Status, got.Task)
+	}
+}
+
 func TestPickAsksAboutStaleWorking(t *testing.T) {
 	src := header + task("TODO a", "a", ":REPO: r") + task("TODO old", "old", ":WORKING: [2026-11-17 Tue 23:00]")
 	ts := load(t, src)
