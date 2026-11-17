@@ -29,6 +29,12 @@
 (advice-add 'format-time-string :around
             (lambda (orig format &optional time zone)
               (funcall orig format (or time edit-time) (or zone t))))
+;; org-today は time-since で C の現在時刻を直に読み、current-time の
+;; advice を通らない
+(advice-add 'org-today :override
+            (lambda ()
+              (time-to-days
+               (time-subtract edit-time (* 3600 org-extend-today-until)))))
 
 (defvar edit-ids nil
   "org-id-new が返す ID の列。Go 側の Env.NewID と揃える。")
