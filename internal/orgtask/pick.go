@@ -137,7 +137,7 @@ func (ts *Tasks) Pick(now time.Time, keep []string) Pick {
 		if !t.open() || t.Props["WORKING"] != "" {
 			return false
 		}
-		if t.scheduledAfter(now) {
+		if t.scheduledAfter(now) || t.scheduledEnded(now) {
 			return false
 		}
 		if t.HasTag("weekend") && now.Weekday() != time.Saturday && now.Weekday() != time.Sunday {
@@ -248,8 +248,8 @@ var (
 	cookieRe   = regexp.MustCompile(`^\[#[^]]+\] ?`)
 	dateRe     = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
 	planningRe = regexp.MustCompile(`^[ \t]*(?:(?:CLOSED|DEADLINE|SCHEDULED):[ \t]*[<\[][^]>]*[]>][ \t]*)+$`)
-	// clockRe は timestamp の日付と曜日に続く時刻(範囲なら始まり)。
-	clockRe = regexp.MustCompile(`^[ \t]*[<\[][0-9]{4}-[0-9]{2}-[0-9]{2}(?: +[^ \t0-9>\]]+)? +([0-9]{1,2}):([0-9]{2})`)
+	// clockRe は timestamp の日付と曜日に続く時刻と、範囲ならその終わり。
+	clockRe = regexp.MustCompile(`^[ \t]*[<\[][0-9]{4}-[0-9]{2}-[0-9]{2}(?: +[^ \t0-9>\]]+)? +([0-9]{1,2}):([0-9]{2})(?:-([0-9]{1,2}):([0-9]{2}))?`)
 	// repeaterRe は timestamp の中の repeater(+1d・++1w・.+1m など)。
 	repeaterRe = regexp.MustCompile(`<[^>]*[ \t](?:\.\+|\+\+|\+)[0-9]+[hdwmy][^>]*>`)
 )
@@ -287,16 +287,41 @@ func (t *Task) scheduledAfter(now time.Time) bool {
 	if day != today {
 		return day > today
 	}
+	start, _ := t.scheduledClock()
+	return start != "" && start > now.Format("15:04")
+}
+
+// scheduledEnded は SCHEDULED の時刻の範囲が now より前に終わったかを
+// 返す。範囲が無ければ偽。
+func (t *Task) scheduledEnded(now time.Time) bool {
+	_, end := t.scheduledClock()
+	return end != "" && t.planning("SCHEDULED")+" "+end < now.Format("2006-01-02 15:04")
+}
+
+// scheduledClock は SCHEDULED の時刻の始まりと終わりを HH:MM で返す。無
+// いものは空。
+func (t *Task) scheduledClock() (start, end string) {
 	line := t.planningLine()
-	m := clockRe.FindStringSubmatch(line[strings.Index(line, "SCHEDULED:")+len("SCHEDULED:"):])
-	if m == nil {
-		return false
+	i := strings.Index(line, "SCHEDULED:")
+	if i < 0 {
+		return "", ""
 	}
-	hour := m[1]
+	m := clockRe.FindStringSubmatch(line[i+len("SCHEDULED:"):])
+	if m == nil {
+		return "", ""
+	}
+	return clock(m[1], m[2]), clock(m[3], m[4])
+}
+
+// clock は時と分を HH:MM にする。時が空なら空。
+func clock(hour, minute string) string {
+	if hour == "" {
+		return ""
+	}
 	if len(hour) == 1 {
 		hour = "0" + hour
 	}
-	return hour+":"+m[2] > now.Format("15:04")
+	return hour + ":" + minute
 }
 
 // Repeating は計画行に repeater があるかを返す。

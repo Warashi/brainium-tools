@@ -122,6 +122,8 @@ func TestPickSkips(t *testing.T) {
 		{"SCHEDULED が未来", []string{task("TODO s", "s", "SCHEDULED: <2026-11-19 Thu>")}, wednesday},
 		{"SCHEDULED が今日の後の時刻", []string{task("TODO s", "s", "SCHEDULED: <2026-11-18 Wed 14:00>")}, wednesday},
 		{"SCHEDULED の時刻の範囲が後", []string{task("TODO s", "s", "SCHEDULED: <2026-11-18 Wed 9:30-10:00 .+1w>")}, wednesday},
+		{"SCHEDULED の時刻の範囲が今日終わった", []string{task("TODO s", "s", "SCHEDULED: <2026-11-18 Wed 7:00-8:59>")}, wednesday},
+		{"SCHEDULED の時刻の範囲が前の日に終わった", []string{task("TODO s", "s", "SCHEDULED: <2026-11-17 Tue 09:00-10:00 .+1d>")}, wednesday},
 		{"平日の weekend", []string{task("TODO we :weekend:", "we")}, wednesday},
 		{"DONE", []string{task("DONE d", "d")}, wednesday},
 		{"WORKING の task と REPO が重なる", []string{
@@ -140,7 +142,7 @@ func TestPickSkips(t *testing.T) {
 }
 
 func TestPickTakesTasksScheduledAtAPassedTime(t *testing.T) {
-	for _, ts := range []string{"<2026-11-18 Wed 9:00>", "<2026-11-18 Wed 08:30 .+1d>", "<2026-11-17 Tue 23:00>"} {
+	for _, ts := range []string{"<2026-11-18 Wed 9:00>", "<2026-11-18 Wed 08:30 .+1d>", "<2026-11-17 Tue 23:00>", "<2026-11-18 Wed 08:00-09:00>"} {
 		got := load(t, header+task("TODO s", "s", "SCHEDULED: "+ts)).Pick(wednesday, nil)
 		if got.Task == nil || got.Task.ID != "s" {
 			t.Errorf("SCHEDULED: %s の Pick = %s %v, want s", ts, got.Status, got.Task)
