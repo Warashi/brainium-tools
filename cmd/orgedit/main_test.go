@@ -114,6 +114,27 @@ func TestPrioritySetsAndRemovesTheCookie(t *testing.T) {
 	}
 }
 
+func TestScheduleSetsAndRemovesTheTimestamp(t *testing.T) {
+	c, _ := newContext(t, "本文。\n")
+	for _, step := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"capture", "-title", "作業"}, "* 作業\n:PROPERTIES:"},
+		{[]string{"schedule", "new-id", "2026-11-18"}, "* 作業\nSCHEDULED: <2026-11-18 Wed>\n"},
+		{[]string{"schedule", "new-id", "2026-11-18", "09:00-10:00"}, "* 作業\nSCHEDULED: <2026-11-18 Wed 09:00-10:00>\n"},
+		{[]string{"schedule", "new-id", "-none"}, "* 作業\n:PROPERTIES:"},
+	} {
+		if err := execute(c, step.args); err != nil {
+			t.Fatalf("%v: %v", step.args, err)
+		}
+		data, _ := os.ReadFile(filepath.Join(c.root, "inbox.org"))
+		if !strings.Contains(string(data), step.want) {
+			t.Errorf("%v の後の inbox.org:\n%s", step.args, data)
+		}
+	}
+}
+
 func TestArgumentErrors(t *testing.T) {
 	for _, args := range [][]string{
 		{"nope"},
@@ -123,6 +144,9 @@ func TestArgumentErrors(t *testing.T) {
 		{"set-property", "id", "KEY"},
 		{"capture"},
 		{"priority", "id"},
+		{"schedule", "id"},
+		{"schedule", "id", "2026-11-18", "09:00", "10:00"},
+		{"schedule", "-none", "id", "2026-11-18"},
 	} {
 		c, _ := newContext(t, "")
 		if err := execute(c, args); err == nil {

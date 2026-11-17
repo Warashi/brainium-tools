@@ -21,6 +21,8 @@ type todoConfig struct {
 	logDone bool
 	// logDrawer は org-log-into-drawer が LOGBOOK かどうか。
 	logDrawer bool
+	// logReschedule は org-log-reschedule が time かどうか。
+	logReschedule bool
 }
 
 // todoDefRe は TODO キーワードの定義の語を、名前と括弧の中に分ける。
@@ -85,6 +87,10 @@ func readTodoConfig(root *org.Node) (todoConfig, error) {
 			c.logDrawer = true
 		case "nologdrawer":
 			c.logDrawer = false
+		case "logreschedule":
+			c.logReschedule = true
+		case "nologreschedule":
+			c.logReschedule = false
 		case "lognotedone", "lognoteclock-out", "lognotereschedule", "lognoteredeadline", "lognoterepeat":
 			return c, fmt.Errorf("#+STARTUP: %s はメモの入力が要るので扱えない", s)
 		}

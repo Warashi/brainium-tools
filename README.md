@@ -89,6 +89,7 @@ $ orgedit delete-property <ID> WORKING
 $ orgedit todo <ID> DONE
 $ orgedit set-tags <ID> handoff weekend
 $ orgedit priority <ID> A          # -none で外す
+$ orgedit schedule <ID> 2026-11-18 09:00-10:00   # 時刻は省略可。-none で外す
 $ orgedit move <ID> -parent <節の ID> -first   # 節の先頭へ
 $ orgedit move <ID> -before <兄弟の ID>
 $ orgedit journal <capture の ID>   # :CAPTURED: の日のデイリーノートへ

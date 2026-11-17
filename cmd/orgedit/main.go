@@ -48,6 +48,7 @@ var commands = map[string]command{
 	"archive":         archiveCommand,
 	"set-tags":        setTagsCommand,
 	"priority":        priorityCommand,
+	"schedule":        scheduleCommand,
 }
 
 func main() {
